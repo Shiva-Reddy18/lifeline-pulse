@@ -10,6 +10,7 @@ import { BloodTypeBadge } from '@/components/BloodTypeBadge';
 import { RoleSelector, UserRoleType } from '@/components/RoleSelector';
 import { BloodGroup } from '@/types/emergency';
 import { useAuth } from '@/contexts/AuthContext';
+import { getRedirectPath } from "@/lib/routeGuard";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -170,6 +171,13 @@ export default function Register() {
       setIsSubmitting(false);
     }
   };
+
+  setTimeout(() => {
+  navigate(getRedirectPath({
+    primary_role: selectedRole,
+    is_verified: selectedRole === "patient"
+  }));
+}, 1500);
 
   /* =========================
      NOTHING BELOW THIS TOUCHED
