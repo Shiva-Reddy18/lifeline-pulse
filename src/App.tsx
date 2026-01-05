@@ -47,7 +47,8 @@ const App = () => (
             <Route path="/hospital" element={<HospitalDashboard />} />
 
             {/* PATIENT DASHBOARD */}
-            <Route path="/patient" element={<PatientDashboard />} />
+            <Route path="/dashboard/patient" element={<PatientDashboard />} />
+
 
             {/* OTHER DASHBOARDS */}
             <Route path="/dashboard/donor" element={<DonorDashboard />} />

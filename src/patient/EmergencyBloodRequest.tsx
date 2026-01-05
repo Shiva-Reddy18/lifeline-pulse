@@ -1,80 +1,28 @@
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+import { ChevronDown, Droplet } from "lucide-react";
 
 const EmergencyBloodRequest = () => {
-  const [bloodGroup, setBloodGroup] = useState("");
-  const [units, setUnits] = useState("");
-
-  const handleSubmit = async () => {
-    if (!bloodGroup || !units) {
-      alert("Please fill all fields");
-      return;
-    }
-
-    try {
-      await fetch("/api/blood-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bloodGroup, units }),
-      });
-
-      alert("Blood request submitted successfully");
-      setBloodGroup("");
-      setUnits("");
-    } catch (err) {
-      console.error(err);
-      alert("Something went wrong");
-    }
-  };
+  const [open, setOpen] = useState(false);
 
   return (
-    <Card className="border-red-200">
-      <CardHeader>
-        <CardTitle className="text-red-600">
-          🚨 Emergency Blood Request
-        </CardTitle>
-      </CardHeader>
+    <Card>
+      <div
+        className="flex items-center justify-between p-4 cursor-pointer"
+        onClick={() => setOpen(!open)}
+      >
+        <div className="flex items-center gap-3 font-semibold">
+          <Droplet className="w-5 h-5 text-red-500" />
+          Emergency Requests
+        </div>
+        <ChevronDown className={`transition ${open ? "rotate-180" : ""}`} />
+      </div>
 
-      <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Select value={bloodGroup} onValueChange={setBloodGroup}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select Blood Group" />
-          </SelectTrigger>
-          <SelectContent>
-            {["A+","A-","B+","B-","O+","O-","AB+","AB-"].map(bg => (
-              <SelectItem key={bg} value={bg}>{bg}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Input
-          type="number"
-          placeholder="Units Required"
-          value={units}
-          onChange={(e) => setUnits(e.target.value)}
-        />
-
-        <Button
-          className="bg-red-600 hover:bg-red-700"
-          onClick={handleSubmit}
-        >
-          Request Blood
-        </Button>
-      </CardContent>
+      {open && (
+        <div className="px-6 pb-6 text-sm text-muted-foreground">
+          No active emergency requests.
+        </div>
+      )}
     </Card>
   );
 };

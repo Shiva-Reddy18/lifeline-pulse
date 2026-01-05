@@ -1,28 +1,29 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const donors = [
-  { name: "Donor A", blood: "O+", distance: "2 km" },
-  { name: "Donor B", blood: "A+", distance: "4 km" },
-];
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { ChevronDown, MapPin } from "lucide-react";
 
 const NearbyDonors = () => {
+  const [open, setOpen] = useState(false);
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Nearby Donors</CardTitle>
-      </CardHeader>
+      <div
+        className="flex items-center justify-between p-4 cursor-pointer"
+        onClick={() => setOpen(!open)}
+      >
+        <div className="flex items-center gap-3 font-semibold">
+          <MapPin className="w-5 h-5 text-blue-500" />
+          Nearby Donors
+        </div>
+        <ChevronDown className={`transition ${open ? "rotate-180" : ""}`} />
+      </div>
 
-      <CardContent className="space-y-3">
-        {donors.map((d, i) => (
-          <div
-            key={i}
-            className="flex justify-between items-center border rounded-md p-3 text-sm"
-          >
-            <span>{d.name} ({d.blood})</span>
-            <span className="text-muted-foreground">{d.distance}</span>
-          </div>
-        ))}
-      </CardContent>
+      {open && (
+        <div className="px-6 pb-6 text-sm">
+          <p>Donor A (O+) – 2 km</p>
+          <p>Donor B (A+) – 4 km</p>
+        </div>
+      )}
     </Card>
   );
 };

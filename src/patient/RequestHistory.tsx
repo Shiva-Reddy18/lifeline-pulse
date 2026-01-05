@@ -1,24 +1,25 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { ChevronDown } from "lucide-react";
 
 const RequestHistory = () => {
+  const [open, setOpen] = useState(false);
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>My Blood Requests</CardTitle>
-      </CardHeader>
+      <div
+        className="flex items-center justify-between p-4 cursor-pointer"
+        onClick={() => setOpen(!open)}
+      >
+        <h3 className="font-semibold">Request History</h3>
+        <ChevronDown className={`transition ${open ? "rotate-180" : ""}`} />
+      </div>
 
-      <CardContent className="space-y-3 text-sm">
-        <div className="flex justify-between">
-          <span>O+ • 2 Units</span>
-          <Badge variant="outline">Pending</Badge>
+      {open && (
+        <div className="px-6 pb-6 text-sm text-muted-foreground">
+          No previous requests found.
         </div>
-
-        <div className="flex justify-between">
-          <span>B+ • 1 Unit</span>
-          <Badge className="bg-green-600">Approved</Badge>
-        </div>
-      </CardContent>
+      )}
     </Card>
   );
 };
