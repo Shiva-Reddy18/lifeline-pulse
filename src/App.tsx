@@ -7,13 +7,14 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { Chatbot } from "@/components/Chatbot";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Register from "./pages/Register";
 import BloodBanks from "./pages/BloodBanks";
 import EmergencyStatusPage from "./pages/EmergencyStatus";
 import HospitalDashboard from "./pages/HospitalDashboard";
-import PatientDashboard from "./dashboards/patient/PatientDashboard";
+import PatientDashboard from "./patient/PatientDashboard";
 import DonorDashboard from "./pages/DonorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import BloodBankDashboard from "./pages/BloodBankDashboard";
@@ -28,8 +29,15 @@ const App = () => (
       <AuthProvider>
         <Toaster />
         <Sonner />
+
         <BrowserRouter>
+          {/* GLOBAL NAVBAR */}
           <Navbar />
+
+          {/* NAVBAR SPACER (THIS FIXES YOUR ISSUE) */}
+          <div className="h-[80px]" />
+
+          {/* ALL ROUTES */}
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
@@ -37,13 +45,19 @@ const App = () => (
             <Route path="/blood-banks" element={<BloodBanks />} />
             <Route path="/status/:requestId" element={<EmergencyStatusPage />} />
             <Route path="/hospital" element={<HospitalDashboard />} />
+
+            {/* PATIENT DASHBOARD */}
             <Route path="/patient" element={<PatientDashboard />} />
+
+            {/* OTHER DASHBOARDS */}
             <Route path="/dashboard/donor" element={<DonorDashboard />} />
             <Route path="/dashboard/admin" element={<AdminDashboard />} />
             <Route path="/dashboard/blood-bank" element={<BloodBankDashboard />} />
             <Route path="/dashboard/volunteer" element={<VolunteerDashboard />} />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
+
           <Chatbot />
           <OfflineIndicator />
         </BrowserRouter>
