@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { Chatbot } from "@/components/Chatbot";
@@ -22,6 +23,46 @@ import VolunteerDashboard from "./pages/VolunteerDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+const AppContent = () => {
+  const location = useLocation();
+
+  // Hide global navbar ONLY for patient dashboard
+  const hideNavbar = location.pathname.startsWith("/dashboard/patient");
+
+  return (
+    <>
+      {/* GLOBAL NAVBAR */}
+      {!hideNavbar && <Navbar />}
+
+      {/* NAVBAR SPACER */}
+      {!hideNavbar && <div className="h-[80px]" />}
+
+      {/* ROUTES */}
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/blood-banks" element={<BloodBanks />} />
+        <Route path="/status/:requestId" element={<EmergencyStatusPage />} />
+        <Route path="/hospital" element={<HospitalDashboard />} />
+
+        {/* PATIENT DASHBOARD */}
+        <Route path="/dashboard/patient" element={<PatientDashboard />} />
+
+        {/* OTHER DASHBOARDS */}
+        <Route path="/dashboard/donor" element={<DonorDashboard />} />
+        <Route path="/dashboard/admin" element={<AdminDashboard />} />
+        <Route path="/dashboard/blood-bank" element={<BloodBankDashboard />} />
+        <Route path="/dashboard/volunteer" element={<VolunteerDashboard />} />
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+
+      <Chatbot />
+      <OfflineIndicator />
+    </>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -30,38 +71,10 @@ const App = () => (
         <Toaster />
         <Sonner />
 
-        <BrowserRouter>
-          {/* GLOBAL NAVBAR */}
-          <Navbar />
+       <BrowserRouter>
+  <AppContent />
+</BrowserRouter>
 
-          {/* NAVBAR SPACER (THIS FIXES YOUR ISSUE) */}
-          <div className="h-[80px]" />
-
-          {/* ALL ROUTES */}
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/blood-banks" element={<BloodBanks />} />
-            <Route path="/status/:requestId" element={<EmergencyStatusPage />} />
-            <Route path="/hospital" element={<HospitalDashboard />} />
-
-            {/* PATIENT DASHBOARD */}
-            <Route path="/dashboard/patient" element={<PatientDashboard />} />
-
-
-            {/* OTHER DASHBOARDS */}
-            <Route path="/dashboard/donor" element={<DonorDashboard />} />
-            <Route path="/dashboard/admin" element={<AdminDashboard />} />
-            <Route path="/dashboard/blood-bank" element={<BloodBankDashboard />} />
-            <Route path="/dashboard/volunteer" element={<VolunteerDashboard />} />
-
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-
-          <Chatbot />
-          <OfflineIndicator />
-        </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
