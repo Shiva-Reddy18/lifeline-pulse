@@ -37,6 +37,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const hasRole = (role: string) => {
+  return user?.role === role;
+};
+const getDashboardPath = () => {
+  if (!user) return "/auth";
+
+  switch (user.role) {
+    case "patient":
+      return "/dashboard/patient";
+    case "donor":
+      return "/dashboard/donor";
+    case "hospital":
+      return "/hospital";
+    case "admin":
+      return "/dashboard/admin";
+    case "blood-bank":
+      return "/dashboard/blood-bank";
+    case "volunteer":
+      return "/dashboard/volunteer";
+    default:
+      return "/";
+  }
+};
 
   // ✅ REPLACED EFFECT (EXACT VERSION YOU GAVE)
   useEffect(() => {
@@ -144,7 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signUp,
         signIn,
-        signOut
+        signOut,
+        hasRole,
+         getDashboardPath
       }}
     >
       {children}

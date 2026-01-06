@@ -17,7 +17,7 @@ import EmergencyStatusPage from "./pages/EmergencyStatus";
 import HospitalDashboard from "./pages/HospitalDashboard";
 import PatientDashboard from "./pages/PatientDashboard";
 import DonorDashboard from "./pages/DonorDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboard from "@/AdminDashboard/AdminDashboard";
 import BloodBankDashboard from "./pages/BloodBankDashboard";
 import VolunteerDashboard from "./pages/VolunteerDashboard";
 import NotFound from "./pages/NotFound";
@@ -42,6 +42,7 @@ const App = () => (
             <Route path="/dashboard/patient" element={<PatientDashboard />} />
             <Route path="/dashboard/donor" element={<DonorDashboard />} />
             <Route path="/dashboard/admin" element={<AdminDashboard />} />
+
             <Route path="/pending-verification" element={<PendingVerification />} />
 
             <Route path="/dashboard/blood-bank" element={<BloodBankDashboard />} />
