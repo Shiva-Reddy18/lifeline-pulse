@@ -1,26 +1,51 @@
-import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const RequestHistory = () => {
-  const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const [history, setHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchHistory = async () => {
+      const { data } = await supabase
+        .from("emergencies")
+        .select("*")
+        .eq("patient_id", user.id)
+        .order("created_at", { ascending: false });
+
+      setHistory(data || []);
+    };
+
+    fetchHistory();
+  }, [user]);
 
   return (
-    <Card>
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer"
-        onClick={() => setOpen(!open)}
-      >
-        <h3 className="font-semibold">Request History</h3>
-        <ChevronDown className={`transition ${open ? "rotate-180" : ""}`} />
-      </div>
+    <section className="bg-white border rounded-2xl p-6">
+      <h2 className="text-lg font-semibold mb-4">
+        Emergency History
+      </h2>
 
-      {open && (
-        <div className="px-6 pb-6 text-sm text-muted-foreground">
-          No previous requests found.
-        </div>
+      {history.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No emergency requests yet.
+        </p>
+      ) : (
+        history.map((e) => (
+          <div
+            key={e.id}
+            className="flex justify-between p-3 bg-gray-50 rounded-lg mb-2"
+          >
+            <span>
+              {new Date(e.created_at).toLocaleDateString()}
+            </span>
+            <span className="text-sm">{e.status}</span>
+          </div>
+        ))
       )}
-    </Card>
+    </section>
   );
 };
 

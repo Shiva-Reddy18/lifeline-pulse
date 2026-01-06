@@ -1,29 +1,48 @@
-import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { ChevronDown, Droplet } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Siren } from "lucide-react";
 
 const EmergencyBloodRequest = () => {
-  const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+
+  const triggerEmergency = async () => {
+    if (!user) return;
+
+    const { error } = await supabase.from("emergencies").insert({
+      patient_id: user.id,
+      blood_group: "O+",
+      status: "created",
+      urgency_level: "critical",
+      location_address: "Auto detected",
+      expires_at: new Date(Date.now() + 60 * 60 * 1000),
+    });
+
+    if (error) {
+      console.error("Emergency insert error:", error);
+    }
+  };
 
   return (
-    <Card>
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer"
-        onClick={() => setOpen(!open)}
-      >
-        <div className="flex items-center gap-3 font-semibold">
-          <Droplet className="w-5 h-5 text-red-500" />
-          Emergency Requests
-        </div>
-        <ChevronDown className={`transition ${open ? "rotate-180" : ""}`} />
+    <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+      <div className="flex items-center gap-3 mb-3">
+        <Siren className="text-red-600 animate-pulse" />
+        <h3 className="font-semibold text-red-700">
+          Emergency Blood Request
+        </h3>
       </div>
 
-      {open && (
-        <div className="px-6 pb-6 text-sm text-muted-foreground">
-          No active emergency requests.
-        </div>
-      )}
-    </Card>
+      <p className="text-sm text-red-600 mb-4">
+        Alert nearby donors instantly
+      </p>
+
+      <Button
+        className="w-full bg-red-600 hover:bg-red-700"
+        onClick={triggerEmergency}
+      >
+        🚨 Trigger Emergency
+      </Button>
+    </div>
   );
 };
 
