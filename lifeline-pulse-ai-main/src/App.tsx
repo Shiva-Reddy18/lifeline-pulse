@@ -7,8 +7,10 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { Chatbot } from "@/components/Chatbot";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+
 import Index from "./pages/Index";
 import PendingVerification from "@/pages/PendingVerification";
+import VolunteerGate from "./Volunteer/VolunteerGate";
 import Auth from "./pages/Auth";
 import Register from "./pages/Register";
 import BloodBanks from "./pages/BloodBanks";
@@ -30,7 +32,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Navbar />
+          <Navbar /> {/* Make sure this exists; otherwise remove or create a simple Navbar */}
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
@@ -41,6 +43,7 @@ const App = () => (
             <Route path="/dashboard/patient" element={<PatientDashboard />} />
             <Route path="/dashboard/donor" element={<DonorDashboard />} />
             <Route path="/dashboard/admin" element={<AdminDashboard />} />
+            <Route path="/Volunteer" element={<VolunteerGate />} />
             <Route path="/pending-verification" element={<PendingVerification />} />
             <Route path="/dashboard/blood-bank" element={<BloodBankDashboard />} />
             <Route path="/dashboard/volunteer" element={<VolunteerDashboard />} />

@@ -1,21 +1,9 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  Heart, 
-  Home, 
-  User, 
-  MapPin, 
-  Hospital as HospitalIcon,
-  Menu,
-  X,
-  LogIn,
-  LogOut,
-  Shield,
-  Droplet,
-  LayoutDashboard,
-  UserPlus,
-  Building2,
-  Truck
+import {
+  Heart, Home, User, MapPin, Hospital as HospitalIcon,
+  Menu, X, LogIn, LogOut, Shield, Droplet, LayoutDashboard,
+  UserPlus, Building2, Truck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,12 +20,10 @@ import {
 
 const roleLabels: Record<string, { label: string; icon: React.ElementType }> = {
   patient: { label: 'Patient', icon: User },
-  attender: { label: 'Attender', icon: User },
   donor: { label: 'Donor', icon: Droplet },
   hospital_staff: { label: 'Hospital', icon: HospitalIcon },
   blood_bank: { label: 'Blood Bank', icon: Building2 },
   volunteer: { label: 'Volunteer', icon: Truck },
-  transport: { label: 'Transport', icon: Truck },
   admin: { label: 'Admin', icon: Shield }
 };
 
@@ -45,7 +31,16 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, signOut, hasRole, primaryRole, getDashboardPath } = useAuth();
+
+  // ✅ SAFE destructuring
+  const auth = useAuth();
+
+  const user = auth?.user;
+  const signOut = auth?.signOut;
+  const primaryRole = auth?.primaryRole;
+  const getDashboardPath = auth?.getDashboardPath;
+
+  const hasRole = (role: string) => primaryRole === role;
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
@@ -55,12 +50,25 @@ export function Navbar() {
   const isActive = (path: string) => location.pathname === path;
 
   const handleSignOut = async () => {
+    if (!signOut) return;
     await signOut();
     navigate('/');
   };
 
-  const RoleIcon = primaryRole ? roleLabels[primaryRole]?.icon || User : User;
-  const roleLabel = primaryRole ? roleLabels[primaryRole]?.label || 'User' : 'User';
+  const RoleIcon =
+    primaryRole && roleLabels[primaryRole]
+      ? roleLabels[primaryRole].icon
+      : User;
+
+  const roleLabel =
+    primaryRole && roleLabels[primaryRole]
+      ? roleLabels[primaryRole].label
+      : 'User';
+
+  const goToDashboard = () => {
+    if (!getDashboardPath) return;
+    navigate(getDashboardPath());
+  };
 
   return (
     <motion.nav
@@ -71,88 +79,86 @@ export function Navbar() {
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
+
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <motion.div
-              className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <Heart className="w-6 h-6 text-primary-foreground fill-current" />
-            </motion.div>
-            <div className="flex flex-col">
-              <span className="font-display font-bold text-lg leading-tight">LIFELINE-X</span>
-              <span className="text-[10px] text-muted-foreground leading-tight">Emergency Blood Response</span>
+            </div>
+            <div>
+              <div className="font-bold">LIFELINE-X</div>
+              <div className="text-xs text-muted-foreground">
+                Emergency Blood Response
+              </div>
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
-            {navItems.map(item => {
-              const Icon = item.icon;
-              return (
-                <Link key={item.path} to={item.path}>
-                  <Button
-                    variant={isActive(item.path) ? "default" : "ghost"}
-                    size="sm"
-                    className="gap-2"
-                  >
-                    <Icon className="w-4 h-4" />
-                    {item.label}
-                  </Button>
-                </Link>
-              );
-            })}
+          {/* Desktop Nav */}
+          <div className="hidden md:flex gap-2">
+            {navItems.map(item => (
+              <Link key={item.path} to={item.path}>
+                <Button
+                  size="sm"
+                  variant={isActive(item.path) ? "default" : "ghost"}
+                >
+                  <item.icon className="w-4 h-4 mr-1" />
+                  {item.label}
+                </Button>
+              </Link>
+            ))}
           </div>
 
-          {/* Auth & Emergency CTA */}
-          <div className="hidden md:flex items-center gap-3">
+          {/* Auth Section */}
+          <div className="hidden md:flex items-center gap-2">
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-2">
-                    <RoleIcon className="w-4 h-4" />
-                    <span>{roleLabel}</span>
-                    <Badge variant="secondary" className="ml-1 text-xs py-0">
-                      {roleLabel}
-                    </Badge>
+                  <Button variant="ghost" size="sm">
+                    <RoleIcon className="w-4 h-4 mr-2" />
+                    {roleLabel}
+                    <Badge className="ml-2">{roleLabel}</Badge>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel className="flex items-center gap-2">
-                    <RoleIcon className="w-4 h-4" />
-                    {roleLabel} Account
-                  </DropdownMenuLabel>
+
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{roleLabel} Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate(getDashboardPath())}>
+
+                  <DropdownMenuItem onClick={goToDashboard}>
                     <LayoutDashboard className="w-4 h-4 mr-2" />
                     My Dashboard
                   </DropdownMenuItem>
+
                   {hasRole('donor') && (
                     <DropdownMenuItem onClick={() => navigate('/dashboard/donor')}>
                       <Droplet className="w-4 h-4 mr-2" />
                       Donor Profile
                     </DropdownMenuItem>
                   )}
+
                   {hasRole('hospital_staff') && (
                     <DropdownMenuItem onClick={() => navigate('/hospital')}>
                       <HospitalIcon className="w-4 h-4 mr-2" />
                       Hospital Portal
                     </DropdownMenuItem>
                   )}
+
                   {hasRole('blood_bank') && (
                     <DropdownMenuItem onClick={() => navigate('/dashboard/blood-bank')}>
                       <Building2 className="w-4 h-4 mr-2" />
                       Blood Bank
                     </DropdownMenuItem>
                   )}
+
                   {hasRole('admin') && (
                     <DropdownMenuItem onClick={() => navigate('/dashboard/admin')}>
                       <Shield className="w-4 h-4 mr-2" />
                       Admin Panel
                     </DropdownMenuItem>
                   )}
+
                   <DropdownMenuSeparator />
+
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
@@ -160,119 +166,34 @@ export function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <div className="flex items-center gap-2">
+              <>
                 <Link to="/auth">
-                  <Button variant="ghost" size="sm" className="gap-2">
-                    <LogIn className="w-4 h-4" />
+                  <Button variant="ghost" size="sm">
+                    <LogIn className="w-4 h-4 mr-1" />
                     Sign In
                   </Button>
                 </Link>
                 <Link to="/register">
-                  <Button variant="hero-outline" size="sm" className="gap-2">
-                    <UserPlus className="w-4 h-4" />
+                  <Button size="sm">
+                    <UserPlus className="w-4 h-4 mr-1" />
                     Register
                   </Button>
                 </Link>
-              </div>
+              </>
             )}
-            <Link to="/">
-              <Button variant="emergency-outline" size="sm">
-                <Heart className="w-4 h-4" />
-                Emergency
-              </Button>
-            </Link>
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Toggle */}
           <Button
             variant="ghost"
             size="icon"
             className="md:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileMenuOpen ? <X /> : <Menu />}
           </Button>
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <motion.div
-          className="md:hidden border-t bg-background"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-        >
-          <div className="container mx-auto px-4 py-4 space-y-2">
-            {navItems.map(item => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Button
-                    variant={isActive(item.path) ? "default" : "ghost"}
-                    className="w-full justify-start gap-3"
-                  >
-                    <Icon className="w-5 h-5" />
-                    {item.label}
-                  </Button>
-                </Link>
-              );
-            })}
-            
-            {user ? (
-              <>
-                <div className="flex items-center gap-2 px-3 py-2">
-                  <RoleIcon className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">{roleLabel}</span>
-                  <Badge variant="secondary" className="text-xs">{roleLabel}</Badge>
-                </div>
-                <Link to={getDashboardPath()} onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start gap-3">
-                    <LayoutDashboard className="w-5 h-5" />
-                    My Dashboard
-                  </Button>
-                </Link>
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start gap-3"
-                  onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
-                >
-                  <LogOut className="w-5 h-5" />
-                  Sign Out
-                </Button>
-              </>
-            ) : (
-              <>
-                <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start gap-3">
-                    <LogIn className="w-5 h-5" />
-                    Sign In
-                  </Button>
-                </Link>
-                <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="hero-outline" className="w-full justify-start gap-3">
-                    <UserPlus className="w-5 h-5" />
-                    Register
-                  </Button>
-                </Link>
-              </>
-            )}
-            
-            <div className="pt-2 border-t">
-              <Link to="/" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="emergency" className="w-full">
-                  <Heart className="w-5 h-5" />
-                  EMERGENCY
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </motion.div>
-      )}
     </motion.nav>
   );
 }
