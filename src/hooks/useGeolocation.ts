@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from "react";
 
 interface GeolocationState {
   latitude: number | null;
@@ -13,21 +13,25 @@ export function useGeolocation() {
     latitude: null,
     longitude: null,
     accuracy: null,
-    loading: true,
+    loading: false,
     error: null,
   });
 
   const getLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         loading: false,
-        error: 'Geolocation is not supported by your browser',
+        error: "Geolocation is not supported by your browser",
       }));
       return;
     }
 
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    setState((prev) => ({
+      ...prev,
+      loading: true,
+      error: null,
+    }));
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -40,35 +44,41 @@ export function useGeolocation() {
         });
       },
       (error) => {
-        let errorMessage = 'Unable to get location';
+        let errorMessage = "Unable to get location";
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = 'Location permission denied. Please enable location access.';
+            errorMessage =
+              "Location permission denied. Please enable location access.";
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information unavailable';
+            errorMessage = "Location information unavailable";
             break;
           case error.TIMEOUT:
-            errorMessage = 'Location request timed out';
+            errorMessage = "Location request timed out";
             break;
         }
-        setState(prev => ({
+
+        setState((prev) => ({
           ...prev,
           loading: false,
           error: errorMessage,
         }));
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
+        enableHighAccuracy: false,
+        timeout: 30000,
         maximumAge: 60000,
       }
     );
   }, []);
 
-  useEffect(() => {
-    getLocation();
-  }, [getLocation]);
-
-  return { ...state, refresh: getLocation };
+  return {
+    latitude: state.latitude,
+    longitude: state.longitude,
+    accuracy: state.accuracy,
+    loading: state.loading,
+    error: state.error,
+    refresh: getLocation,
+  };
 }

@@ -1,18 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
-import { MapPin, Navigation, Loader2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useEffect, useRef, useState } from "react";
+import { MapPin, Navigation, Loader2 } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
-interface MapMarker {
+
+
+export interface MapMarker {
   id: string;
   lat: number;
   lng: number;
-  type: 'patient' | 'hospital' | 'donor' | 'volunteer' | 'blood_unit';
+  type: "patient" | "hospital" | "donor" | "volunteer" | "blood_unit";
   label?: string;
   eta?: number;
 }
 
-interface LiveMapProps {
+export interface LiveMapProps {
   center?: { lat: number; lng: number };
   markers?: MapMarker[];
   showRoute?: boolean;
@@ -20,67 +22,99 @@ interface LiveMapProps {
   onMarkerClick?: (marker: MapMarker) => void;
 }
 
-export function LiveMap({ 
-  center, 
-  markers = [], 
+/* ------------------------------------------------------------------ */
+/* Component                                                          */
+/* ------------------------------------------------------------------ */
+
+export function LiveMap({
+  center,
+  markers = [],
   showRoute = false,
   height = "400px",
-  onMarkerClick 
+  onMarkerClick,
 }: LiveMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
 
+  /* -------------------- Simulated map load -------------------- */
   useEffect(() => {
-    // For now, show a placeholder map
-    // In production, integrate with Leaflet/OpenStreetMap
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 1000);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, []);
 
-  const getMarkerColor = (type: MapMarker['type']) => {
+  /* -------------------- Helpers -------------------- */
+
+  const getMarkerColor = (type: MapMarker["type"]) => {
     switch (type) {
-      case 'patient': return 'bg-primary';
-      case 'hospital': return 'bg-medical';
-      case 'donor': return 'bg-status-stable';
-      case 'volunteer': return 'bg-secondary';
-      case 'blood_unit': return 'bg-status-critical';
-      default: return 'bg-muted-foreground';
+      case "patient":
+        return "bg-primary";
+      case "hospital":
+        return "bg-medical";
+      case "donor":
+        return "bg-status-stable";
+      case "volunteer":
+        return "bg-secondary";
+      case "blood_unit":
+        return "bg-status-critical";
+      default:
+        return "bg-muted-foreground";
     }
   };
 
-  const getMarkerIcon = (type: MapMarker['type']) => {
+  const getMarkerIcon = (type: MapMarker["type"]) => {
     switch (type) {
-      case 'patient': return '🏥';
-      case 'hospital': return '🏨';
-      case 'donor': return '🩸';
-      case 'volunteer': return '🚗';
-      case 'blood_unit': return '💉';
-      default: return '📍';
+      case "patient":
+        return "🏥";
+      case "hospital":
+        return "🏨";
+      case "donor":
+        return "🩸";
+      case "volunteer":
+        return "🚑";
+      case "blood_unit":
+        return "💉";
+      default:
+        return "📍";
     }
   };
+
+  /* -------------------- Loading -------------------- */
 
   if (isLoading) {
     return (
-      <Card className="flex items-center justify-center" style={{ height }}>
+      <Card
+        className="flex items-center justify-center"
+        style={{ height }}
+      >
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 className="w-8 h-8 animate-spin" />
-          <p className="text-sm">Loading map...</p>
+          <p className="text-sm">Loading live map…</p>
         </div>
       </Card>
     );
   }
 
+  /* -------------------- Error -------------------- */
+
   if (mapError) {
     return (
-      <Card className="flex items-center justify-center p-6" style={{ height }}>
+      <Card
+        className="flex items-center justify-center p-6"
+        style={{ height }}
+      >
         <div className="text-center text-muted-foreground">
           <MapPin className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p className="text-sm">{mapError}</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => setMapError(null)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => setMapError(null)}
+          >
             Retry
           </Button>
         </div>
@@ -88,23 +122,25 @@ export function LiveMap({
     );
   }
 
+  /* -------------------- Map Placeholder -------------------- */
+
   return (
     <Card className="relative overflow-hidden" style={{ height }}>
-      {/* Map Placeholder - In production, this would be a Leaflet map */}
-      <div 
+      <div
         ref={mapRef}
         className="w-full h-full bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-900 relative"
       >
-        {/* Grid overlay for map feel */}
-        <div 
+        {/* Grid overlay */}
+        <div
           className="absolute inset-0 opacity-10"
           style={{
-            backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
-            backgroundSize: '50px 50px'
+            backgroundImage:
+              "linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)",
+            backgroundSize: "50px 50px",
           }}
         />
 
-        {/* Center indicator */}
+        {/* Center marker */}
         {center && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
             <div className="relative">
@@ -114,19 +150,23 @@ export function LiveMap({
           </div>
         )}
 
-        {/* Markers Legend */}
+        {/* Legend */}
         {markers.length > 0 && (
           <div className="absolute top-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
             <p className="text-xs font-semibold mb-2">Live Tracking</p>
             <div className="space-y-1">
-              {markers.map(marker => (
+              {markers.map((marker) => (
                 <button
                   key={marker.id}
                   onClick={() => onMarkerClick?.(marker)}
                   className="flex items-center gap-2 text-xs w-full hover:bg-muted/50 rounded p-1 transition-colors"
                 >
-                  <span className={`w-3 h-3 rounded-full ${getMarkerColor(marker.type)}`} />
-                  <span>{marker.label || marker.type}</span>
+                  <span
+                    className={`w-3 h-3 rounded-full ${getMarkerColor(
+                      marker.type
+                    )}`}
+                  />
+                  <span>{marker.label ?? marker.type}</span>
                   {marker.eta && (
                     <span className="text-muted-foreground ml-auto">
                       {marker.eta} min
@@ -147,39 +187,45 @@ export function LiveMap({
                 <span className="text-sm font-medium">Route Active</span>
               </div>
               <span className="text-xs text-muted-foreground">
-                {markers.find(m => m.eta)?.eta || '--'} min ETA
+                {markers.find((m) => m.eta)?.eta ?? "--"} min ETA
               </span>
             </div>
           </div>
         )}
 
-        {/* Simulated markers on map */}
+        {/* Fake marker positions (UI only) */}
         <div className="absolute inset-0 flex items-center justify-center">
           {markers.map((marker, i) => (
             <div
               key={marker.id}
               className="absolute cursor-pointer hover:scale-110 transition-transform"
               style={{
-                left: `${30 + (i * 15)}%`,
-                top: `${40 + (i % 2 === 0 ? -10 : 10)}%`
+                left: `${30 + i * 15}%`,
+                top: `${40 + (i % 2 === 0 ? -10 : 10)}%`,
               }}
               onClick={() => onMarkerClick?.(marker)}
             >
-              <div className="text-2xl">{getMarkerIcon(marker.type)}</div>
+              <div className="text-2xl">
+                {getMarkerIcon(marker.type)}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Map Controls */}
+      {/* Controls */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-2">
         <Button variant="secondary" size="icon" className="w-8 h-8">
-          <span className="text-lg">+</span>
+          +
         </Button>
         <Button variant="secondary" size="icon" className="w-8 h-8">
-          <span className="text-lg">−</span>
+          −
         </Button>
       </div>
     </Card>
   );
 }
+
+
+
+export default LiveMap;
