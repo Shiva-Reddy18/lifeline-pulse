@@ -45,7 +45,7 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, signOut, hasRole, primaryRole, getDashboardPath } = useAuth();
+  const { user, signOut, hasRole, primaryRole, getDashboardPath, loading } = useAuth();
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
@@ -59,8 +59,27 @@ export function Navbar() {
     navigate('/');
   };
 
-  const RoleIcon = primaryRole ? roleLabels[primaryRole]?.icon || User : User;
-  const roleLabel = primaryRole ? roleLabels[primaryRole]?.label || 'User' : 'User';
+  // effectiveRole: prefer user.role if AuthContext attached it, else use primaryRole
+  const effectiveRole = (user && ((user as any).role ?? primaryRole)) ?? null;
+  // normalize to string or null
+  const normalizedRole = typeof effectiveRole === 'string' ? effectiveRole : null;
+
+  const RoleIcon = normalizedRole ? (roleLabels[normalizedRole]?.icon || User) : User;
+  const roleLabel = normalizedRole ? (roleLabels[normalizedRole]?.label || 'User') : 'User';
+
+  // helper to handle fast UI even if roles[] hasn't arrived yet
+  const hasRoleFast = (roleName: string) => {
+    // check normalizedRole first (fast), else fallback to hasRole()
+    if (normalizedRole) return normalizedRole === roleName;
+    return hasRole(roleName as any);
+  };
+
+  // decide dashboard navigation — don't navigate using getDashboardPath() if primaryRole not yet known
+  const handleGoToDashboard = () => {
+    if (loading) return; // do nothing until roles are loaded
+    const path = getDashboardPath();
+    navigate(path);
+  };
 
   return (
     <motion.nav
@@ -124,29 +143,30 @@ export function Navbar() {
                     {roleLabel} Account
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate(getDashboardPath())}>
+                  <DropdownMenuItem onClick={handleGoToDashboard} disabled={loading}>
                     <LayoutDashboard className="w-4 h-4 mr-2" />
                     My Dashboard
                   </DropdownMenuItem>
-                  {hasRole('donor') && (
+
+                  {hasRoleFast('donor') && (
                     <DropdownMenuItem onClick={() => navigate('/dashboard/donor')}>
                       <Droplet className="w-4 h-4 mr-2" />
                       Donor Profile
                     </DropdownMenuItem>
                   )}
-                  {hasRole('hospital_staff') && (
+                  {hasRoleFast('hospital_staff') && (
                     <DropdownMenuItem onClick={() => navigate('/hospital')}>
                       <HospitalIcon className="w-4 h-4 mr-2" />
                       Hospital Portal
                     </DropdownMenuItem>
                   )}
-                  {hasRole('blood_bank') && (
+                  {hasRoleFast('blood_bank') && (
                     <DropdownMenuItem onClick={() => navigate('/dashboard/blood-bank')}>
                       <Building2 className="w-4 h-4 mr-2" />
                       Blood Bank
                     </DropdownMenuItem>
                   )}
-                  {hasRole('admin') && (
+                  {hasRoleFast('admin') && (
                     <DropdownMenuItem onClick={() => navigate('/dashboard/admin')}>
                       <Shield className="w-4 h-4 mr-2" />
                       Admin Panel
@@ -231,7 +251,7 @@ export function Navbar() {
                   <Badge variant="secondary" className="text-xs">{roleLabel}</Badge>
                 </div>
                 <Link to={getDashboardPath()} onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start gap-3">
+                  <Button variant="ghost" className="w-full justify-start gap-3" disabled={loading}>
                     <LayoutDashboard className="w-5 h-5" />
                     My Dashboard
                   </Button>

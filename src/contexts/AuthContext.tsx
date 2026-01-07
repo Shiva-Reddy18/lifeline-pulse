@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +10,7 @@ interface UserRole {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: (User & { role?: AppRole }) | null; // convenience: user.role may be present
   session: Session | null;
   roles: UserRole[];
   loading: boolean;
@@ -23,6 +24,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Role -> dashboard map
 const roleDashboardMap: Record<AppRole, string> = {
   patient: '/dashboard/patient',
   attender: '/dashboard/patient',
@@ -34,64 +36,128 @@ const roleDashboardMap: Record<AppRole, string> = {
   admin: '/dashboard/admin'
 };
 
+// Role priority (higher index = higher priority)
+const ROLE_PRIORITY: AppRole[] = [
+  'patient',
+  'attender',
+  'volunteer',
+  'donor',
+  'transport',
+  'blood_bank',
+  'hospital_staff',
+  'admin'
+];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<(User & { role?: AppRole }) | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [primaryRole, setPrimaryRole] = useState<AppRole | null>(null);
 
-  useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer role fetching with setTimeout to avoid deadlock
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserRoles(session.user.id);
-          }, 0);
-        } else {
-          setRoles([]);
-        }
-      }
-    );
+  // Helper: normalize role string
+  const normalize = (r: any) => (typeof r === 'string' ? r.trim().toLowerCase() : r);
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserRoles(session.user.id);
-      }
-      setLoading(false);
-    });
+  // Determine a deterministic primary role from roles[] using ROLE_PRIORITY
+  const determinePrimaryRole = (roleRows: UserRole[] | null): AppRole | null => {
+    if (!roleRows || roleRows.length === 0) return null;
+    const found = roleRows
+      .map(r => normalize(r.role) as AppRole)
+      .filter(Boolean) as AppRole[];
+    for (let i = ROLE_PRIORITY.length - 1; i >= 0; i--) {
+      const candidate = ROLE_PRIORITY[i];
+      if (found.includes(candidate)) return candidate;
+    }
+    // fallback to first
+    return found[0] ?? null;
+  };
 
-    return () => subscription.unsubscribe();
-  }, []);
-
+  // Fetch roles for a userId and update state; returns the roles
   const fetchUserRoles = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
+        .select('role, created_at') // created_at helps ordering if present
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
 
       if (error) {
         console.error('Error fetching roles:', error);
-        return;
+        setRoles([]);
+        setPrimaryRole(null);
+        // don't throw — caller will handle
+        return [];
       }
 
-      setRoles(data as UserRole[]);
+      // normalize and set
+      const normalized = (data || []).map((d: any) => ({ role: normalize(d.role) })) as UserRole[];
+      setRoles(normalized);
+
+      const pr = determinePrimaryRole(normalized);
+      setPrimaryRole(pr);
+
+      // Attach role onto current user object for convenience (non-destructive)
+      setUser(prev => {
+        if (!prev) return prev;
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        return ({ ...(prev as any), role: pr } as any);
+      });
+
+      return normalized;
     } catch (e) {
       console.error('Error fetching roles:', e);
+      setRoles([]);
+      setPrimaryRole(null);
+      return [];
     }
   };
 
+  useEffect(() => {
+    setLoading(true);
+
+    // Auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session ?? null);
+      setUser(session?.user ? ({ ...(session.user as any) } as any) : null);
+
+      if (session?.user) {
+        // fetch roles and only when done update loading
+        fetchUserRoles(session.user.id).then(() => {
+          setLoading(false);
+        }).catch(() => setLoading(false));
+      } else {
+        setRoles([]);
+        setPrimaryRole(null);
+        setLoading(false);
+      }
+    });
+
+    // Initial session check (await role fetch before clearing loading)
+    (async () => {
+      try {
+        const { data: sessData } = await supabase.auth.getSession();
+        const s = sessData.session ?? null;
+        setSession(s);
+        setUser(s?.user ? ({ ...(s.user as any) } as any) : null);
+        if (s?.user) {
+          await fetchUserRoles(s.user.id);
+        } else {
+          setRoles([]);
+          setPrimaryRole(null);
+        }
+      } catch (e) {
+        console.error('Error initializing auth:', e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const signUp = async (email: string, password: string, metadata?: Record<string, any>) => {
     const redirectUrl = `${window.location.origin}/`;
-    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -101,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // After signup, assign the role if provided
+    // After signup, assign the role if provided (and then re-fetch roles)
     if (!error && data.user && metadata?.selected_role) {
       const { error: roleError } = await supabase
         .from('user_roles')
@@ -112,9 +178,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (roleError) {
         console.error('Error assigning role:', roleError);
+      } else {
+        // re-fetch roles so frontend immediately sees the assigned role
+        await fetchUserRoles(data.user.id);
       }
 
-      // Create additional records based on role
+      // Create donor entry if needed
       if (metadata.selected_role === 'donor' && metadata.blood_group) {
         const { error: donorError } = await supabase
           .from('donors')
@@ -134,16 +203,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-    
+
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
@@ -152,22 +217,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setRoles([]);
+    setPrimaryRole(null);
   };
 
   const hasRole = (role: AppRole) => {
-    return roles.some(r => r.role === role);
+    const r = normalize(role);
+    return roles.some(rr => normalize(rr.role) === r);
   };
 
-  // Get primary role (first role in hierarchy)
-  const primaryRole: AppRole | null = roles.length > 0 
-    ? roles[0].role 
-    : null;
+const getDashboardPath = (): string => {
+  console.log("🔍 getDashboardPath called", {
+    primaryRole,
+    roles,
+    user: user?.email,
+  });
 
-  // Get dashboard path based on user's primary role
-  const getDashboardPath = (): string => {
-    if (!primaryRole) return '/';
-    return roleDashboardMap[primaryRole] || '/';
-  };
+  if (!primaryRole) {
+    console.warn("⚠️ primaryRole is NULL → returning /");
+    return '/';
+  }
+
+  const path = roleDashboardMap[primaryRole] || '/';
+  console.log("✅ dashboard path:", path);
+  return path;
+};
+
 
   return (
     <AuthContext.Provider value={{

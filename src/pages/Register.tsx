@@ -10,13 +10,12 @@ import { BloodTypeBadge } from '@/components/BloodTypeBadge';
 import { RoleSelector, UserRoleType } from '@/components/RoleSelector';
 import { BloodGroup } from '@/types/emergency';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  User, 
-  Droplet, 
-  Phone, 
-  MapPin, 
+import {
+  User,
+  Droplet,
+  Phone,
+  MapPin,
   Calendar,
   CheckCircle,
   ArrowRight,
@@ -47,11 +46,11 @@ export default function Register() {
   const navigate = useNavigate();
   const { user, signUp } = useAuth();
   const { toast } = useToast();
-  
+
   // Step management
   const [step, setStep] = useState<'role' | 'details'>('role');
   const [selectedRole, setSelectedRole] = useState<UserRoleType | null>(null);
-  
+
   // Form data
   const [formData, setFormData] = useState({
     email: '',
@@ -69,11 +68,12 @@ export default function Register() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Check for role in URL params
+  // Check for role in URL params and auto-advance to details
   useEffect(() => {
     const roleParam = searchParams.get('type');
     if (roleParam && ['patient', 'donor', 'hospital_staff', 'blood_bank', 'volunteer', 'admin'].includes(roleParam)) {
       setSelectedRole(roleParam as UserRoleType);
+      setStep('details');
     }
   }, [searchParams]);
 
@@ -105,11 +105,11 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRole) return;
-    
+
     setIsSubmitting(true);
 
     try {
-      // Sign up the user
+      // Call signUp from your AuthContext (wraps Supabase or whichever provider)
       const { error: signUpError } = await signUp(formData.email, formData.password, {
         full_name: formData.fullName,
         phone: formData.phone,
@@ -120,44 +120,40 @@ export default function Register() {
       if (signUpError) {
         toast({
           title: "Registration Failed",
-          description: signUpError.message,
+          description: signUpError.message || "Unable to create account.",
           variant: "destructive"
         });
         setIsSubmitting(false);
         return;
       }
 
-      // The role will be assigned via a database trigger or we assign it here
-      // For now, we'll wait for the session and then assign the role
-      
+      // Keep demo-friendly behavior: show toast + success screen then redirect
       toast({
         title: "Account Created!",
         description: "Welcome to LIFELINE-X. Redirecting to your dashboard..."
       });
-      if (selectedRole === "patient") {
-  const patientProfile = {
-    fullName: formData.fullName,
-    phone: formData.phone,
-    bloodGroup: formData.bloodGroup,
-    address: formData.address,
-    emergencyContact: formData.emergencyContact,
-    email: formData.email,
-  };
 
-  localStorage.setItem(
-    "patientProfile",
-    JSON.stringify(patientProfile)
-  );
-}
+      // If patient, store a small local profile for quick demo use (optional)
+      if (selectedRole === "patient") {
+        const patientProfile = {
+          fullName: formData.fullName,
+          phone: formData.phone,
+          bloodGroup: formData.bloodGroup,
+          address: formData.address,
+          emergencyContact: formData.emergencyContact,
+          email: formData.email,
+        };
+        localStorage.setItem("patientProfile", JSON.stringify(patientProfile));
+      }
 
       setIsSuccess(true);
-      
+
       // Redirect after a short delay
       setTimeout(() => {
         navigate(roleRedirectMap[selectedRole]);
-      }, 2000);
-      
-    } catch (e) {
+      }, 1800);
+
+    } catch (err) {
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -185,13 +181,13 @@ export default function Register() {
               Registration Successful!
             </h1>
             <p className="text-muted-foreground mb-8">
-              {selectedRole === 'donor' 
+              {selectedRole === 'donor'
                 ? 'Thank you for registering as a blood donor. You will be notified when your blood type is needed in emergencies near you.'
                 : selectedRole === 'patient'
-                ? 'Your patient profile has been created. You can now use one-tap emergency requests.'
-                : selectedRole === 'hospital_staff'
-                ? 'Your hospital staff account is pending verification. You will be notified once approved.'
-                : 'Your account has been created. Redirecting to your dashboard...'}
+                  ? 'Your patient profile has been created. You can now use one-tap emergency requests.'
+                  : selectedRole === 'hospital_staff'
+                    ? 'Your hospital staff account is pending verification. You will be notified once approved.'
+                    : 'Your account has been created. Redirecting to your dashboard...'}
             </p>
             <motion.div
               className="w-8 h-8 border-3 border-primary/30 border-t-primary rounded-full mx-auto"
@@ -221,7 +217,7 @@ export default function Register() {
               {step === 'role' ? 'Choose Your Role' : 'Complete Registration'}
             </h1>
             <p className="text-muted-foreground">
-              {step === 'role' 
+              {step === 'role'
                 ? 'Select how you want to use LIFELINE-X'
                 : `Register as ${selectedRole?.replace('_', ' ')}`}
             </p>
@@ -236,9 +232,9 @@ export default function Register() {
                 exit={{ opacity: 0, x: 20 }}
               >
                 {/* Role Selection Grid */}
-                <RoleSelector 
-                  selectedRole={selectedRole} 
-                  onSelectRole={handleRoleSelect} 
+                <RoleSelector
+                  selectedRole={selectedRole}
+                  onSelectRole={handleRoleSelect}
                 />
 
                 {/* Continue Button */}
@@ -258,7 +254,7 @@ export default function Register() {
                 {/* Login Link */}
                 <p className="text-center text-sm text-muted-foreground mt-6">
                   Already have an account?{' '}
-                  <button 
+                  <button
                     onClick={() => navigate('/auth')}
                     className="text-primary hover:underline font-medium"
                   >
@@ -517,11 +513,11 @@ export default function Register() {
                         <Shield className="w-5 h-5 text-primary mt-0.5" />
                         <div className="text-sm text-muted-foreground">
                           <p className="font-medium text-foreground mb-1">Your Privacy</p>
-                          {selectedRole === 'donor' 
+                          {selectedRole === 'donor'
                             ? 'Your contact will only be shared with verified hospitals during emergencies. No spam, no patient direct contact.'
                             : selectedRole === 'patient'
-                            ? 'Your information is secure. Only verified hospitals will handle your emergency requests.'
-                            : 'Your information is encrypted and secure. We follow strict data protection guidelines.'}
+                              ? 'Your information is secure. Only verified hospitals will handle your emergency requests.'
+                              : 'Your information is encrypted and secure. We follow strict data protection guidelines.'}
                         </div>
                       </div>
 

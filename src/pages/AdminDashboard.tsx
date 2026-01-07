@@ -102,7 +102,7 @@ export default function AdminDashboard() {
     try {
       // Fetch stats
       const { data: emergencies } = await supabase
-        .from('emergencies')
+        .from('emergency_requests')
         .select('id, status')
         .limit(1000);
 

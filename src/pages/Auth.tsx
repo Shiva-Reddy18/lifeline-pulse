@@ -1,16 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import {
-  Heart,
-  Mail,
-  Lock,
-  User,
-  Phone,
-  Droplet,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { Heart, Eye, EyeOff } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,44 +42,36 @@ export default function Auth() {
 
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, signIn, signUp } = useAuth();
 
-  /* ----------------------------------------
-     🔁 EMAIL → DASHBOARD REDIRECT
-  ---------------------------------------- */
-  const redirectBasedOnEmail = (email: string) => {
-    const lowerEmail = email.toLowerCase();
+  const {
+    user,
+    signIn,
+    signUp,
+    loading: authLoading,
+    primaryRole,
+    getDashboardPath,
+  } = useAuth();
 
-    if (lowerEmail === "admin@lifeline.com") {
-      navigate("/dashboard/admin");
-    } else if (lowerEmail === "donor@lifeline.com") {
-      navigate("/dashboard/donor");
-    } else if (lowerEmail === "hospital@lifeline.com") {
-      navigate("/dashboard/blood-bank");
-    } else {
-      navigate("/dashboard/patient"); // patient default
-    }
-  };
-
-  /* ----------------------------------------
-     🔁 AUTO REDIRECT IF LOGGED IN
-  ---------------------------------------- */
+  /* =====================================================
+     ✅ SINGLE SOURCE OF TRUTH FOR REDIRECT (VERY IMPORTANT)
+     ===================================================== */
   useEffect(() => {
-    if (user?.email) {
-      redirectBasedOnEmail(user.email);
+    if (!authLoading && user && primaryRole) {
+      const path = getDashboardPath();
+      console.log("✅ FINAL REDIRECT →", path);
+      navigate(path, { replace: true });
     }
-  }, [user]);
+  }, [authLoading, user, primaryRole, navigate, getDashboardPath]);
 
-  /* ----------------------------------------
-     🧠 LOGIN / SIGNUP HANDLER
-  ---------------------------------------- */
+  /* =====================================================
+     HANDLE LOGIN / SIGNUP (NO REDIRECT HERE)
+     ===================================================== */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       if (isLogin) {
-        /* ---------- LOGIN ---------- */
         const { error } = await signIn(email, password);
 
         if (error) {
@@ -102,12 +85,9 @@ export default function Auth() {
 
         toast({
           title: "Welcome back!",
-          description: "Redirecting to your dashboard...",
+          description: "Loading your dashboard…",
         });
-
-        redirectBasedOnEmail(email);
       } else {
-        /* ---------- SIGN UP ---------- */
         const { error } = await signUp(email, password, {
           full_name: fullName,
           phone,
@@ -123,25 +103,10 @@ export default function Auth() {
           return;
         }
 
-        /* ✅ SAVE PATIENT PROFILE LOCALLY (TEMP DB) */
-        localStorage.setItem(
-          "patientProfile",
-          JSON.stringify({
-            full_name: fullName,
-            phone,
-            blood_group: bloodGroup,
-            location: "",
-            emergency_contact: "",
-            email,
-          })
-        );
-
         toast({
           title: "Account Created!",
-          description: "Redirecting to your dashboard...",
+          description: "Setting up your dashboard…",
         });
-
-        redirectBasedOnEmail(email);
       }
     } catch {
       toast({
@@ -154,9 +119,9 @@ export default function Auth() {
     }
   };
 
-  /* ----------------------------------------
-     🧩 UI
-  ---------------------------------------- */
+  /* =====================================================
+     UI
+     ===================================================== */
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 pt-20">
       <motion.div
