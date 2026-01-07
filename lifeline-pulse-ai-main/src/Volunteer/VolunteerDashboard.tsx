@@ -86,7 +86,6 @@ export default function VolunteerDashboard() {
             />
           </section>
         )}
-
         {/* History */}
         <DeliveryHistory />
       </main>

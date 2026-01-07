@@ -1,55 +1,104 @@
 // src/bloodbank/BloodBankDashboard.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+
 import BankStats from "./BankStats";
 import BloodStockManager from "./BloodStockManager";
 import IncomingRequests from "./IncomingRequests";
+import DispatchLog from "./DispatchLog";
+import DonorsManager from "./DonorsManager";
+import DailyStats from "./DailyStats";
+import StaffManager from "./StaffManager";
+
+import {
+  fetchInventory,
+  fetchRequests,
+  approveRequest as apiApprove,
+  rejectRequest as apiReject,
+  addInventoryUnits,
+  InventoryRow,
+  RequestRow,
+} from "./api";
+
 import "./bloodbank.css";
 
-/* ✅ DEFINE TYPE HERE */
-interface BloodRequest {
-  id: string;
-  hospital: string;
-  blood_group: string;
-  units: number;
-  urgency: "CRITICAL" | "NORMAL";
-  status: "pending" | "approved" | "rejected";
-}
-
 export default function BloodBankDashboard() {
-  const [requests, setRequests] = useState<BloodRequest[]>([
-    {
-      id: "1",
-      hospital: "Apollo Hospital",
-      blood_group: "O+",
-      units: 3,
-      urgency: "CRITICAL",
-      status: "pending",
-    },
-    {
-      id: "2",
-      hospital: "Care Hospital",
-      blood_group: "A-",
-      units: 2,
-      urgency: "NORMAL",
-      status: "pending",
-    },
-  ]);
+  const { profile } = useAuth();
 
-  const approveRequest = (id: string) => {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: "approved" } : r
-      )
-    );
+  const [inventory, setInventory] = useState<InventoryRow[]>([]);
+  const [requests, setRequests] = useState<RequestRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /* ===================== LOAD DATA ===================== */
+
+  async function loadData() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [inv, reqs] = await Promise.all([
+        fetchInventory(),
+        fetchRequests(),
+      ]);
+      setInventory(inv);
+      setRequests(reqs);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message ?? "Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  /* ===================== ACTIONS ===================== */
+
+  const handleApprove = async (id: string) => {
+    setLoading(true);
+    try {
+      const approver =
+        profile?.full_name ?? profile?.email ?? "bloodbank-admin";
+
+      await apiApprove(id, approver);
+      await loadData();
+    } catch (e: any) {
+      console.error(e);
+      setError("Approval action blocked by permissions");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const rejectRequest = (id: string) => {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: "rejected" } : r
-      )
-    );
+  const handleReject = async (id: string) => {
+    setLoading(true);
+    try {
+      await apiReject(id);
+      await loadData();
+    } catch (e) {
+      console.error(e);
+      setError("Reject action blocked by permissions");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleAdd = async (bloodGroup: string) => {
+    setLoading(true);
+    try {
+      await addInventoryUnits(bloodGroup, 1);
+      await loadData();
+    } catch (e) {
+      console.error(e);
+      setError("Inventory update blocked by permissions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ===================== UI ===================== */
 
   return (
     <div className="bb-container">
@@ -57,14 +106,49 @@ export default function BloodBankDashboard() {
 
       <BankStats />
 
+      {error && (
+        <p className="text-red-600 mb-2">
+          {error}
+        </p>
+      )}
+
       <div className="bb-grid">
-        <BloodStockManager />
-        <IncomingRequests
-          requests={requests}
-          approve={approveRequest}
-          reject={rejectRequest}
-        />
+        <div>
+          <BloodStockManager
+            inventory={inventory}
+            onAdd={handleAdd}
+          />
+          <DailyStats />
+        </div>
+
+        <div>
+          <IncomingRequests
+            requests={requests
+              .filter((r) => r.status === "pending")
+              .map((r) => ({
+                ...r,
+                hospital: r.hospital_name,
+                units: r.units_requested,
+                available_units: inventory.find(
+                  (i) => i.blood_group === r.blood_group
+                )?.units_available,
+              })) as any}
+            approve={handleApprove}
+            reject={handleReject}
+          />
+
+          <DonorsManager />
+          <StaffManager />
+        </div>
       </div>
+
+      <DispatchLog />
+
+      {loading && (
+        <p className="text-gray-500 mt-4">
+          Loading latest data…
+        </p>
+      )}
     </div>
   );
 }

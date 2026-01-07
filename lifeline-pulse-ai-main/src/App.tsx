@@ -18,7 +18,7 @@ import HospitalDashboard from "./pages/HospitalDashboard";
 import PatientDashboard from "./pages/PatientDashboard";
 import DonorDashboard from "./pages/DonorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
-import BloodBankDashboard from "./pages/BloodBankDashboard";
+import BloodBankDashboard from "@/bloodbank/BloodBankDashboard";
 import VolunteerDashboard from "./Volunteer/VolunteerDashboard";
 
 import { Toaster } from "@/components/ui/toaster";
