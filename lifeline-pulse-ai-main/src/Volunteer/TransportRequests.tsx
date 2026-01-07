@@ -1,66 +1,109 @@
-// src/Volunteer/TransportRequests.tsx
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Droplet, MapPin, Clock, ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
 
-interface TransportRequest {
+/* ---------------- Types ---------------- */
+export interface TransportRequest {
   id: string;
-  pickup: string;
-  dropoff: string;
-  blood_group: string;
-  units: number;
+  distance_km: number;
   eta_minutes: number;
-  urgency?: "CRITICAL" | "NORMAL";
 }
 
+/* ---------------- Props ---------------- */
 interface Props {
-  requests: TransportRequest[];
-  accept: (req: TransportRequest) => void;
-  hasActiveTask: boolean;
+  request?: TransportRequest | null;
+  onAccept?: (request: TransportRequest) => void;
 }
 
-export default function TransportRequests({ requests, accept, hasActiveTask }: Props) {
-  return (
-    <Card className="p-6 bg-white shadow-md rounded-xl space-y-4 animate-slideInRight">
-      <p className="font-semibold text-lg mb-2">Available Transport Requests</p>
+/* ---------------- Component ---------------- */
+export default function TransportRequests({
+  request,
+  onAccept,
+}: Props) {
+  // ✅ DEMO FALLBACK (dashboard never breaks)
+  const safeRequest: TransportRequest = request ?? {
+    id: "demo-request",
+    distance_km: 2.4,
+    eta_minutes: 15,
+  };
 
-      {requests.length === 0 ? (
-        <p className="text-gray-500">No transport requests available</p>
-      ) : hasActiveTask ? (
-        <p className="text-gray-500">Complete your active delivery first</p>
-      ) : (
-        requests.map((r) => (
-          <Card
-            key={r.id}
-            className="p-4 flex justify-between items-center bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition duration-300 transform hover:scale-105 animate-slideInUp"
+  const handleAccept = () => {
+    if (onAccept) {
+      onAccept(safeRequest);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      <Card className="relative overflow-hidden rounded-3xl border border-red-500/40 shadow-[0_20px_50px_rgba(239,68,68,0.15)]">
+        {/* Emergency Glow */}
+        <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent pointer-events-none" />
+
+        {/* Header */}
+        <div className="flex items-center gap-3 bg-gradient-to-r from-red-600 to-red-500 px-6 py-4 text-white">
+          <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+            <Droplet className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs opacity-90">Incoming Request</p>
+            <h3 className="text-lg font-bold">Emergency Transport</h3>
+          </div>
+        </div>
+
+        {/* Content */}
+        <CardContent className="p-6 space-y-5">
+          <div>
+            <h4 className="text-2xl font-bold text-gray-900">
+              Blood Transport Needed
+            </h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Nearby hospital requires urgent delivery.
+            </p>
+          </div>
+
+          {/* Info chips */}
+          <div className="flex flex-wrap gap-3">
+            <InfoChip
+              icon={<MapPin className="h-4 w-4" />}
+              label={`${safeRequest.distance_km} km away`}
+            />
+            <InfoChip
+              icon={<Clock className="h-4 w-4" />}
+              label={`ETA ${safeRequest.eta_minutes} min`}
+            />
+          </div>
+
+          {/* CTA */}
+          <Button
+            onClick={handleAccept}
+            className="h-14 w-full text-lg font-semibold bg-green-600 hover:bg-green-700 flex items-center justify-center gap-3"
           >
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                {r.urgency && (
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      r.urgency === "CRITICAL"
-                        ? "bg-red-500 text-white animate-pulse"
-                        : "bg-yellow-400 text-black"
-                    }`}
-                  >
-                    {r.urgency}
-                  </span>
-                )}
-                <p className="font-medium">{r.pickup} → {r.dropoff}</p>
-              </div>
-              <p className="text-gray-500 text-sm">
-                {r.blood_group} • {r.units} units • ETA {r.eta_minutes} mins
-              </p>
-            </div>
-            <Button
-              className="bg-blue-500 hover:bg-blue-600 text-white transition px-4 py-2 rounded-lg transform hover:scale-105"
-              onClick={() => accept(r)}
-            >
-              Accept
-            </Button>
-          </Card>
-        ))
-      )}
-    </Card>
+            Accept Request
+            <ArrowRight className="h-5 w-5" />
+          </Button>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+/* ---------------- Helpers ---------------- */
+function InfoChip({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-700">
+      {icon}
+      {label}
+    </span>
   );
 }

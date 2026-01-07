@@ -1,56 +1,95 @@
-// src/Volunteer/VolunteerDashboard.tsx
-import { useState } from "react";
-import AvailabilityToggle from "./AvailabilityToggle";
+import { useEffect, useState } from "react";
+import { Delivery } from "./types";
+import { useAuth } from "@/contexts/AuthContext";
+import { getVolunteerForCurrentUser } from "./helpers";
+
+import VolunteerHeader from "./VolunteerHeader";
 import VolunteerStats from "./VolunteerStats";
-import TransportRequests from "./TransportRequests";
 import ActiveTaskCard from "./ActiveTaskCard";
 import DeliveryHistory from "./DeliveryHistory";
 
+/* ---------------- DEMO ACTIVE DELIVERY ---------------- */
+const DEMO_ACTIVE_DELIVERY: Delivery = {
+  id: "demo-1",
+  blood_group: "O+",
+  units: 2,
+  pickup_location: "City Blood Bank",
+  drop_location: "Apollo Hospital",
+  distance_km: 6,
+  eta_min: 18,
+  status: "picked_up",
+  contact_phone: "9876543210",
+  created_at: new Date().toISOString(),
+};
+
 export default function VolunteerDashboard() {
-  const [available, setAvailable] = useState(true);
-  const [activeTask, setActiveTask] = useState<any | null>(null);
-  const [requests, setRequests] = useState([
-    { id: "1", pickup: "City Blood Bank", dropoff: "Apollo Hospital", blood_group: "O−", units: 2, eta_minutes: 15, status: "accepted" },
-    { id: "2", pickup: "KIMS Blood Bank", dropoff: "Care Hospital", blood_group: "B+", units: 1, eta_minutes: 20, status: "accepted" },
-  ]);
-  const [history, setHistory] = useState([
-    { id: "h1", dropoff: "Apollo Hospital", blood_group: "O−", units: 2 },
-    { id: "h2", dropoff: "KIMS Hospital", blood_group: "B+", units: 1 },
-  ]);
+  const { user } = useAuth();
+  const [activeDelivery, setActiveDelivery] = useState<Delivery | null>(null);
+  const [ready, setReady] = useState(false);
 
-  const handleAccept = (req: any) => {
-    setActiveTask({ ...req, status: "accepted" });
-    setRequests((prev) => prev.filter((r) => r.id !== req.id));
-  };
+  useEffect(() => {
+    const init = async () => {
+      if (!user) {
+        setReady(true);
+        return;
+      }
 
-  const handleStart = () => {
-    if (activeTask) setActiveTask({ ...activeTask, status: "in_transit" });
-  };
+      const volunteer = await getVolunteerForCurrentUser(user.id);
 
-  const handleComplete = () => {
-    if (activeTask) {
-      setHistory((prev) => [...prev, activeTask]);
-      setActiveTask(null);
-    }
-  };
+      // ✅ Volunteer exists → real dashboard
+      if (volunteer) {
+        setActiveDelivery(null);
+        setReady(true);
+        return;
+      }
+
+      // ✅ Volunteer NOT registered → demo dashboard
+      console.warn("Volunteer not found → demo mode");
+      setActiveDelivery(DEMO_ACTIVE_DELIVERY);
+      setReady(true);
+    };
+
+    init();
+  }, [user]);
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Loading volunteer dashboard…
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 space-y-6">
-      <AvailabilityToggle available={available} setAvailable={setAvailable} />
-      <VolunteerStats
-        role="Transport Volunteer"
-        level="Silver"
-        sos={2}
-        pending={requests.length}
-        active={activeTask ? 1 : 0}
-        completed={history.length}
-        livesSaved={history.length}
-      />
-      <TransportRequests requests={requests} accept={handleAccept} hasActiveTask={!!activeTask} />
-      {activeTask && (
-        <ActiveTaskCard request={activeTask} start={handleStart} complete={handleComplete} />
-      )}
-      <DeliveryHistory history={history} />
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      {/* Header (contains Availability + Profile) */}
+      <VolunteerHeader />
+
+      {/* Main Content */}
+      <main className="mx-auto max-w-6xl px-4 py-6 md:py-10 space-y-10">
+        {/* Stats */}
+        <VolunteerStats />
+
+        {/* Active Delivery */}
+        {activeDelivery && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">Active Delivery</h2>
+              <span className="text-sm text-muted-foreground">
+                Live task in progress
+              </span>
+            </div>
+
+            <ActiveTaskCard
+              delivery={activeDelivery}
+              onUpdate={setActiveDelivery}
+            />
+          </section>
+        )}
+
+        {/* History */}
+        <DeliveryHistory />
+      </main>
     </div>
   );
 }

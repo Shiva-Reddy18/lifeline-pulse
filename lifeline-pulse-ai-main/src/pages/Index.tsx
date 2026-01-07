@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { EmergencyButton } from '@/components/EmergencyButton';
 import { BloodTypeBadge } from '@/components/BloodTypeBadge';
@@ -25,14 +25,14 @@ import {
 const bloodGroups: BloodGroup[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 export default function Index() {
-  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [showEmergencyForm, setShowEmergencyForm] = useState(false);
   const [selectedBloodGroup, setSelectedBloodGroup] = useState<BloodGroup | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
   const { latitude, longitude, loading: locationLoading, error: locationError } = useGeolocation();
 
   const handleEmergencyTrigger = () => {
-    setShowEmergencyModal(true);
+    setShowEmergencyForm(true);
   };
 
   const handleEmergencySubmit = async () => {
@@ -42,7 +42,7 @@ export default function Index() {
     // Simulate request creation
     await new Promise(resolve => setTimeout(resolve, 2000));
     setIsProcessing(false);
-    setShowEmergencyModal(false);
+    setShowEmergencyForm(false);
     navigate('/status/demo-request');
   };
 
@@ -339,96 +339,91 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Emergency Modal */}
-      <AnimatePresence>
-        {showEmergencyModal && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => !isProcessing && setShowEmergencyModal(false)}
-          >
-            <motion.div
-              className="w-full max-w-md"
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              onClick={e => e.stopPropagation()}
-            >
-              <Card variant="emergency" className="p-6">
-                <div className="text-center mb-6">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <Heart className="w-8 h-8 text-primary animate-heartbeat" />
-                  </div>
-                  <h2 className="text-2xl font-display font-bold">Emergency Request</h2>
-                  <p className="text-muted-foreground mt-2">
-                    Select blood group to continue
-                  </p>
+      {/* Emergency Form (inline) */}
+      {showEmergencyForm && (
+        <motion.div
+          className="container mx-auto px-4 mb-8"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card variant="emergency" className="p-6 max-w-md mx-auto">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <Heart className="w-6 h-6 text-primary animate-heartbeat" />
                 </div>
+                <h3 className="text-lg font-semibold">Emergency Request</h3>
+                <p className="text-sm text-muted-foreground mt-1">Select blood group to continue</p>
+              </div>
+              <button
+                className="text-sm text-muted-foreground hover:text-destructive"
+                onClick={() => !isProcessing && setShowEmergencyForm(false)}
+                aria-label="Close emergency form"
+              >
+                Cancel
+              </button>
+            </div>
 
-                {/* Blood group selection */}
-                <div className="grid grid-cols-4 gap-2 mb-6">
-                  {bloodGroups.map(bg => (
-                    <button
-                      key={bg}
-                      onClick={() => setSelectedBloodGroup(bg)}
-                      className={`p-3 rounded-xl border-2 transition-all ${
-                        selectedBloodGroup === bg
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <BloodTypeBadge bloodGroup={bg} size="sm" showIcon={false} />
-                    </button>
-                  ))}
-                </div>
-
-                {/* Location status */}
-                <div className="flex items-center gap-2 p-3 bg-muted rounded-lg mb-6">
-                  <MapPin className="w-5 h-5 text-primary" />
-                  <div className="flex-1 text-sm">
-                    {locationLoading ? 'Detecting location...' : 
-                     locationError ? 'Location unavailable' :
-                     'Location detected'}
-                  </div>
-                  {!locationLoading && !locationError && (
-                    <CheckCircle className="w-5 h-5 text-status-stable" />
-                  )}
-                </div>
-
-                {/* Submit button */}
-                <Button
-                  variant="hero"
-                  className="w-full"
-                  disabled={!selectedBloodGroup || isProcessing}
-                  onClick={handleEmergencySubmit}
+            {/* Blood group selection */}
+            <div className="grid grid-cols-4 gap-2 mb-6">
+              {bloodGroups.map(bg => (
+                <button
+                  key={bg}
+                  onClick={() => setSelectedBloodGroup(bg)}
+                  className={`p-3 rounded-xl border-2 transition-all ${
+                    selectedBloodGroup === bg
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-primary/50'
+                  }`}
                 >
-                  {isProcessing ? (
-                    <>
-                      <motion.div
-                        className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      />
-                      Creating Request...
-                    </>
-                  ) : (
-                    <>
-                      <Heart className="w-5 h-5" />
-                      Send Emergency Request
-                    </>
-                  )}
-                </Button>
+                  <BloodTypeBadge bloodGroup={bg} size="sm" showIcon={false} />
+                </button>
+              ))}
+            </div>
 
-                <p className="text-xs text-center text-muted-foreground mt-4">
-                  Your request will be routed to the nearest verified hospitals
-                </p>
-              </Card>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {/* Location status */}
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg mb-6">
+              <MapPin className="w-5 h-5 text-primary" />
+              <div className="flex-1 text-sm">
+                {locationLoading ? 'Detecting location...' : 
+                 locationError ? 'Location unavailable' :
+                 'Location detected'}
+              </div>
+              {!locationLoading && !locationError && (
+                <CheckCircle className="w-5 h-5 text-status-stable" />
+              )}
+            </div>
+
+            {/* Submit button */}
+            <Button
+              variant="hero"
+              className="w-full"
+              disabled={!selectedBloodGroup || isProcessing}
+              onClick={handleEmergencySubmit}
+            >
+              {isProcessing ? (
+                <>
+                  <motion.div
+                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                  Creating Request...
+                </>
+              ) : (
+                <>
+                  <Heart className="w-5 h-5" />
+                  Send Emergency Request
+                </>
+              )}
+            </Button>
+
+            <p className="text-xs text-center text-muted-foreground mt-4">
+              Your request will be routed to the nearest verified hospitals
+            </p>
+          </Card>
+        </motion.div>
+      )}
     </div>
   );
 }

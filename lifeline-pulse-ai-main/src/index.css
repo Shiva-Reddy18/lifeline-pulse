@@ -64,6 +64,10 @@
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(220 15% 98%) 100%);
     --gradient-medical: linear-gradient(135deg, hsl(210 80% 50%), hsl(210 85% 40%));
 
+    /* Hero Blobs */
+    --hero-blob-1: radial-gradient(closest-side at 20% 30%, hsl(0 85% 45% / 0.12), transparent 40%);
+    --hero-blob-2: radial-gradient(closest-side at 80% 70%, hsl(210 80% 50% / 0.08), transparent 40%);
+
     /* Shadows */
     --shadow-sm: 0 1px 2px hsl(220 20% 10% / 0.05);
     --shadow-md: 0 4px 12px hsl(220 20% 10% / 0.1);

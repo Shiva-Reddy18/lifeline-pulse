@@ -2,7 +2,7 @@ import { openDB, IDBPDatabase } from 'idb';
 import { BloodGroup } from '@/types/emergency';
 
 const DB_NAME = 'lifeline-x-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 interface BloodBankCache {
   id: string;
@@ -27,7 +27,8 @@ interface EmergencyQueueItem {
   patient_name: string;
   patient_phone?: string;
   created_at: string;
-  synced: boolean;
+  // Use numeric keys (0/1) for compatibility with IndexedDB key requirements
+  synced: number;
   sync_error?: string;
 }
 
@@ -68,12 +69,47 @@ export async function initOfflineDB(): Promise<IDBPDatabase<OfflineDB>> {
         emergencyStore.createIndex('by-created', 'created_at');
       }
 
+      // Delivery queue store (for offline delivery creation)
+      if (!database.objectStoreNames.contains('deliveryQueue')) {
+        const deliveryStore = database.createObjectStore('deliveryQueue', { keyPath: 'id' });
+        deliveryStore.createIndex('by-synced', 'synced');
+        deliveryStore.createIndex('by-created', 'created_at');
+      }
+
       // Sync metadata store
       if (!database.objectStoreNames.contains('syncMetadata')) {
         database.createObjectStore('syncMetadata', { keyPath: 'key' });
       }
     },
   });
+
+  // Normalize older boolean 'synced' values to numeric 0/1 to remain compatible with IDB keys
+  try {
+    if (db.objectStoreNames.contains('deliveryQueue')) {
+      const tx = db.transaction('deliveryQueue', 'readwrite');
+      const all = await tx.store.getAll();
+      for (const item of all) {
+        if (typeof (item as any).synced === 'boolean') {
+          await tx.store.put({ ...item, synced: (item as any).synced ? 1 : 0 });
+        }
+      }
+      await tx.done;
+    }
+
+    if (db.objectStoreNames.contains('emergencyQueue')) {
+      const tx2 = db.transaction('emergencyQueue', 'readwrite');
+      const all2 = await tx2.store.getAll();
+      for (const item of all2) {
+        if (typeof (item as any).synced === 'boolean') {
+          await tx2.store.put({ ...item, synced: (item as any).synced ? 1 : 0 });
+        }
+      }
+      await tx2.done;
+    }
+  } catch (err) {
+    // Normalize best-effort — do not fail DB init on errors
+    console.warn('[OfflineStorage] Normalization failed', err);
+  }
 
   return db;
 }
@@ -118,15 +154,115 @@ export async function queueEmergency(emergency: Omit<EmergencyQueueItem, 'id' | 
   await database.put('emergencyQueue', {
     ...emergency,
     id,
-    synced: false,
+    synced: 0, // use numeric keys (0 = not synced) because boolean is not a valid IDB key
     created_at: new Date().toISOString()
   });
   
   return id;
 }
 
+// Delivery Queue (Offline-First)
+export interface DeliveryQueueItem {
+  id: string;
+  blood_group?: string;
+  units?: number;
+  pickup_name?: string;
+  pickup_address?: string;
+  drop_name?: string;
+  drop_address?: string;
+  contact_phone?: string;
+  distance_km?: number;
+  eta_minutes?: number;
+  status?: string;
+  rating?: number | null;
+  assigned_offline_to?: string | null;
+  created_at: string;
+  // Use numeric synced flag (0 = not synced, 1 = synced)
+  synced: number;
+  sync_error?: string;
+}
+
+export async function queueDelivery(delivery: Omit<DeliveryQueueItem, 'id' | 'synced' | 'created_at'>): Promise<string> {
+  const database = await initOfflineDB();
+  const id = `offline-delivery-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  await database.put('deliveryQueue', {
+    ...delivery,
+    id,
+    synced: 0, // 0 = not synced yet
+    created_at: new Date().toISOString()
+  });
+
+  return id;
+}
+
+export async function getQueuedDeliveries(): Promise<DeliveryQueueItem[]> {
+  const database = await initOfflineDB();
+  // 'synced' is stored as 0/1 numeric key; query for 0 to find unsynced items
+  return database.getAllFromIndex('deliveryQueue', 'by-synced', IDBKeyRange.only(0));
+}
+
+export async function deleteQueuedDelivery(id: string): Promise<void> {
+  const database = await initOfflineDB();
+  await database.delete('deliveryQueue', id);
+}
+
+export async function markDeliverySynced(id: string, serverId?: string): Promise<void> {
+  const database = await initOfflineDB();
+  const delivery = await database.get('deliveryQueue', id);
+  if (delivery) {
+    await database.put('deliveryQueue', {
+      ...delivery,
+      id: serverId || id,
+      synced: 1 // mark as synced using numeric key
+    });
+
+    if (serverId && serverId !== id) {
+      await database.delete('deliveryQueue', id);
+    }
+  }
+}
+
+export async function markDeliverySyncError(id: string, error: string): Promise<void> {
+  const database = await initOfflineDB();
+  const delivery = await database.get('deliveryQueue', id);
+  if (delivery) {
+    await database.put('deliveryQueue', {
+      ...delivery,
+      sync_error: error
+    });
+  }
+}
+
+export async function syncQueuedDeliveries(
+  syncFunction: (delivery: DeliveryQueueItem) => Promise<{ success: boolean; serverId?: string; error?: string }>
+): Promise<{ synced: number; failed: number }> {
+  const queued = await getQueuedDeliveries();
+  let synced = 0;
+  let failed = 0;
+
+  for (const delivery of queued) {
+    try {
+      const result = await syncFunction(delivery);
+      if (result.success) {
+        await markDeliverySynced(delivery.id, result.serverId);
+        synced++;
+      } else {
+        await markDeliverySyncError(delivery.id, result.error || 'Unknown');
+        failed++;
+      }
+    } catch (err) {
+      await markDeliverySyncError(delivery.id, err instanceof Error ? err.message : 'Sync failed');
+      failed++;
+    }
+  }
+
+  return { synced, failed };
+}
+
 export async function getQueuedEmergencies(): Promise<EmergencyQueueItem[]> {
   const database = await initOfflineDB();
+  // 'synced' is stored as 0/1 numeric key; query for 0 to find unsynced items
   return database.getAllFromIndex('emergencyQueue', 'by-synced', IDBKeyRange.only(0));
 }
 
@@ -138,7 +274,7 @@ export async function markEmergencySynced(id: string, serverId?: string): Promis
     await database.put('emergencyQueue', {
       ...emergency,
       id: serverId || id,
-      synced: true
+      synced: 1 // mark as synced using numeric key
     });
     
     // Remove the old offline entry if we have a new server ID

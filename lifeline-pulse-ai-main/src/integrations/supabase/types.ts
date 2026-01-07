@@ -526,6 +526,161 @@ export type Database = {
           },
         ]
       }
+
+      /* ---------- VOLUNTEERS TABLE ---------- */
+      volunteers: {
+        Row: {
+          id: string
+          user_id: string | null
+          name: string | null
+          phone: string | null
+          is_online: boolean | null
+          total_deliveries: number | null
+          on_time_rate: number | null
+          rating: number | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          name?: string | null
+          phone?: string | null
+          is_online?: boolean | null
+          total_deliveries?: number | null
+          on_time_rate?: number | null
+          rating?: number | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          name?: string | null
+          phone?: string | null
+          is_online?: boolean | null
+          total_deliveries?: number | null
+          on_time_rate?: number | null
+          rating?: number | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "volunteers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+
+      /* ---------- DELIVERIES TABLE ---------- */
+      deliveries: {
+        Row: {
+          id: string
+          volunteer_id: string | null
+          assigned_volunteer_id: string | null
+          blood_group: string | null
+          units: number | null
+          priority: string | null
+          pickup_name: string | null
+          pickup_address: string | null
+          drop_name: string | null
+          drop_address: string | null
+          contact_phone: string | null
+          distance_km: number | null
+          eta_minutes: number | null
+          status: string | null
+          rating: number | null
+          created_at: string | null
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          volunteer_id?: string | null
+          assigned_volunteer_id?: string | null
+          blood_group?: string | null
+          units?: number | null
+          priority?: string | null
+          pickup_name?: string | null
+          pickup_address?: string | null
+          drop_name?: string | null
+          drop_address?: string | null
+          contact_phone?: string | null
+          distance_km?: number | null
+          eta_minutes?: number | null
+          status?: string | null
+          rating?: number | null
+          created_at?: string | null
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          volunteer_id?: string | null
+          assigned_volunteer_id?: string | null
+          blood_group?: string | null
+          units?: number | null
+          priority?: string | null
+          pickup_name?: string | null
+          pickup_address?: string | null
+          drop_name?: string | null
+          drop_address?: string | null
+          contact_phone?: string | null
+          distance_km?: number | null
+          eta_minutes?: number | null
+          status?: string | null
+          rating?: number | null
+          created_at?: string | null
+          completed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliveries_volunteer_id_fkey"
+            columns: ["volunteer_id"]
+            isOneToOne: false
+            referencedRelation: "volunteers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+
+      /* ---------- DELIVERY EVENTS TABLE ---------- */
+      delivery_events: {
+        Row: {
+          id: string
+          delivery_id: string
+          event: string
+          timestamp: string
+        }
+        Insert: {
+          id?: string
+          delivery_id: string
+          event: string
+          timestamp?: string
+        }
+        Update: {
+          id?: string
+          delivery_id?: string
+          event?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_events_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+            foreignKeyName: "live_tracking_emergency_id_fkey"
+            columns: ["emergency_id"]
+            isOneToOne: false
+            referencedRelation: "emergencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           action_url: string | null

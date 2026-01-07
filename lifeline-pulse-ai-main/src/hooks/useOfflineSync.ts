@@ -5,10 +5,13 @@ import {
   onSyncStatusChange,
   getQueuedEmergencies,
   syncQueuedEmergencies,
+  getQueuedDeliveries,
+  syncQueuedDeliveries,
   cacheBloodBanks,
   getCachedBloodBanks,
   getBloodBanksSyncStatus,
   queueEmergency,
+  queueDelivery,
   initAutoSync
 } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,14 +69,75 @@ export function useOfflineSync() {
     }
   }, []);
 
+  // Sync function for deliveries (used when we queued a delivery while offline)
+  const syncDelivery = useCallback(async (delivery: any) => {
+    try {
+      // Insert directly using supabase client (will use auth cookie/token)
+      const { data, error } = await supabase.from('deliveries').insert([{ 
+        blood_group: delivery.blood_group,
+        units: delivery.units,
+        pickup_name: delivery.pickup_name,
+        pickup_address: delivery.pickup_address,
+        drop_name: delivery.drop_name,
+        drop_address: delivery.drop_address,
+        contact_phone: delivery.contact_phone,
+        distance_km: delivery.distance_km,
+        eta_minutes: delivery.eta_minutes,
+        status: delivery.status || 'delivered',
+        rating: delivery.rating ?? null,
+        created_at: delivery.created_at
+      }]).select();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      const inserted = data?.[0];
+      return { success: true, serverId: inserted?.id };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+    }
+  }, []);
   useEffect(() => {
     // Initialize DB
     initOfflineDB();
 
     // Listen for online/offline changes
-    const handleOnline = () => {
+    const handleOnline = async () => {
       setIsOnline(true);
       setSyncStatus('syncing');
+
+      try {
+        console.log('[OfflineSync] Back online, syncing queued deliveries and emergencies...');
+        const [deliveriesRes, emergenciesRes] = await Promise.all([
+          syncQueuedDeliveries(syncDelivery),
+          syncQueuedEmergencies(syncEmergency),
+        ]);
+
+        // Update pending count after sync
+        const queuedE = await getQueuedEmergencies();
+        const queuedD = await getQueuedDeliveries();
+        setPendingCount(queuedE.length + queuedD.length);
+
+        // Set final sync status
+        if ((deliveriesRes.failed + emergenciesRes.failed) > 0) {
+          setSyncStatus('error');
+        } else {
+          setSyncStatus('synced');
+        }
+
+        // Dispatch global event so UI can show a toast (success/failure summary)
+        window.dispatchEvent(new CustomEvent('offline-sync', { detail: { deliveries: deliveriesRes, emergencies: emergenciesRes } }));
+
+        if ((deliveriesRes.synced + emergenciesRes.synced) > 0) {
+          console.log('[OfflineSync] Synced queued items', deliveriesRes, emergenciesRes);
+          window.dispatchEvent(new CustomEvent('deliveries-changed', { detail: { refresh: true } }));
+        }
+      } catch (e) {
+        console.error('[OfflineSync] sync failed', e);
+        setSyncStatus('error');
+        window.dispatchEvent(new CustomEvent('offline-sync', { detail: { deliveries: { synced: 0, failed: 0 }, emergencies: { synced: 0, failed: 0 }, error: String(e) } }));
+      }
     };
     
     const handleOffline = () => {
@@ -89,19 +153,37 @@ export function useOfflineSync() {
       setSyncStatus(status);
     });
 
-    // Initialize auto-sync
-    const cleanup = initAutoSync(syncEmergency);
+    // Initialize auto-sync for emergencies (keeps older behavior too)
+    const cleanup1 = initAutoSync(syncEmergency);
 
-    // Check pending count
+    // Also ensure we run delivery sync when we go online (this is consolidated into handleOnline above)
+
+    // If we're already online, trigger an initial delivery + emergency sync
+    if (navigator.onLine) {
+      handleOnline().catch((e) => {
+        console.error('[OfflineSync] failed initial sync', e);
+      });
+    }
+
+    const cleanup = () => {
+      cleanup1();
+    };
+
+    // Check pending count (emergencies + deliveries)
     const checkPending = async () => {
-      const queued = await getQueuedEmergencies();
-      setPendingCount(queued.length);
+      const queuedE = await getQueuedEmergencies();
+      const queuedD = await getQueuedDeliveries();
+      setPendingCount(queuedE.length + queuedD.length);
     };
     checkPending();
+
+    // Listen for queue changes triggered elsewhere (e.g., a component queued a new delivery)
+    window.addEventListener('offline-queue-changed', checkPending);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('offline-queue-changed', checkPending);
       unsubscribe();
       cleanup();
     };
@@ -152,6 +234,32 @@ export function useOfflineSync() {
       error: result.error
     };
   }, [syncEmergency]);
+
+  // Create delivery (offline-first)
+  const createDeliveryOfflineFirst = useCallback(async (data: any) => {
+    if (isOffline()) {
+      const offlineId = await queueDelivery({
+        blood_group: data.blood_group,
+        units: data.units,
+        pickup_name: data.pickup_name,
+        pickup_address: data.pickup_address,
+        drop_name: data.drop_name,
+        drop_address: data.drop_address,
+        contact_phone: data.contact_phone,
+        distance_km: data.distance_km,
+        eta_minutes: data.eta_minutes,
+        status: data.status,
+        rating: typeof data.rating === 'number' ? data.rating : null,
+        assigned_offline_to: data.assigned_offline_to || null
+      });
+
+      return { success: true, offline: true, offlineId, message: 'Delivery queued — will sync when online.' };
+    }
+
+    // Online: insert immediately using syncDelivery
+    const result = await syncDelivery({ ...data, created_at: new Date().toISOString() } as any);
+    return { success: result.success, offline: false, serverId: result.serverId, error: result.error };
+  }, [syncDelivery]);
 
   // Cache blood banks
   const cacheBloodBankData = useCallback(async () => {
@@ -240,6 +348,7 @@ export function useOfflineSync() {
     syncStatus,
     pendingCount,
     createEmergencyOfflineFirst,
+    createDeliveryOfflineFirst,
     cacheBloodBankData,
     getBloodBanks,
     forceSync
