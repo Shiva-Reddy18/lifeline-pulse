@@ -101,6 +101,10 @@ const getDashboardPath = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Hardcoded admin credentials (must match AdminDashboard)
+  const ADMIN_EMAIL = 'asamshiva@gmail.com';
+  const ADMIN_PASSWORD = '123456';
+
   const signUp = async (
     email: string,
     password: string,
@@ -144,6 +148,32 @@ const getDashboardPath = () => {
   };
 
   const signIn = async (email: string, password: string) => {
+    // Accept hardcoded admin credentials locally (no Supabase)
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      try {
+        sessionStorage.setItem('admin_authenticated', '1');
+      } catch {}
+
+      // synthetic user + profile for admin
+      const adminUser: any = { id: 'admin-local', email, role: 'admin' };
+      const adminProfile = {
+        id: 'admin-local',
+        email,
+        full_name: 'Administrator',
+        primary_role: 'admin',
+        role: 'admin',
+        is_verified: true,
+      };
+
+      setUser(adminUser as any);
+      setSession(null);
+      setProfile(adminProfile);
+
+      try { window.dispatchEvent(new Event('admin-auth-changed')); } catch {}
+
+      return { error: null };
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -156,6 +186,23 @@ const getDashboardPath = () => {
     setUser(null);
     setSession(null);
     setProfile(null);
+    // If admin was signed in via local hardcoded flow, clear that first
+    try {
+      if (sessionStorage.getItem('admin_authenticated') === '1') {
+        sessionStorage.removeItem('admin_authenticated');
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        try { window.dispatchEvent(new Event('admin-auth-changed')); } catch {}
+        return;
+      }
+    } catch {}
+
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    try { window.dispatchEvent(new Event('admin-auth-changed')); } catch {}
   };
 
   return (

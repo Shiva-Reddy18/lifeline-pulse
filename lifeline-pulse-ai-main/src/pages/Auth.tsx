@@ -36,16 +36,13 @@ const location = useLocation();
    * - profile is loaded
    */
 useEffect(() => {
-  // 🚫 do NOT redirect if already on auth/register
-  if (
-    !redirectedRef.current &&
-    user &&
-    profile &&
-    !location.pathname.startsWith('/auth') &&
-    !location.pathname.startsWith('/register')
-  ) {
-    redirectedRef.current = true;
-    navigate(getRedirectPath(profile), { replace: true });
+  // Redirect once after sign-in when the user is currently on auth/register pages
+  if (!redirectedRef.current && user && profile) {
+    const onAuthPage = location.pathname.startsWith('/auth') || location.pathname.startsWith('/register');
+    if (onAuthPage) {
+      redirectedRef.current = true;
+      navigate(getRedirectPath(profile), { replace: true });
+    }
   }
 }, [user, profile, navigate, location.pathname]);
 

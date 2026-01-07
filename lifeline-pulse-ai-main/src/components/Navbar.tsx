@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   DropdownMenu,
@@ -45,7 +45,48 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, signOut, hasRole, primaryRole, getDashboardPath } = useAuth();
+  const { user, profile, signOut, hasRole, getDashboardPath } = useAuth();
+  const primaryRole = profile?.primary_role || (user as any)?.role || null;
+
+  // Admin session state (updates when admin-auth-changed or storage events fire)
+  const [isAdminSession, setIsAdminSession] = useState<boolean>(() => {
+    try {
+      return (typeof window !== 'undefined' && sessionStorage.getItem('admin_authenticated') === '1') ||
+        (user as any)?.role === 'admin' || profile?.primary_role === 'admin';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const update = () => {
+      try {
+        setIsAdminSession(
+          (typeof window !== 'undefined' && sessionStorage.getItem('admin_authenticated') === '1') ||
+          (user as any)?.role === 'admin' || profile?.primary_role === 'admin'
+        );
+      } catch {
+        setIsAdminSession(false);
+      }
+    };
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'admin_authenticated') update();
+    };
+
+    const onCustom = () => update();
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('admin-auth-changed', onCustom);
+
+    // Also react to profile/user changes
+    update();
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('admin-auth-changed', onCustom);
+    };
+  }, [user, profile]);
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
@@ -55,12 +96,14 @@ export function Navbar() {
   const isActive = (path: string) => location.pathname === path;
 
   const handleSignOut = async () => {
-    await signOut();
+    try {
+      await signOut();
+    } catch {}
     navigate('/');
   };
 
-  const RoleIcon = primaryRole ? roleLabels[primaryRole]?.icon || User : User;
-  const roleLabel = primaryRole ? roleLabels[primaryRole]?.label || 'User' : 'User';
+  const RoleIcon = isAdminSession ? Shield : (primaryRole ? roleLabels[primaryRole]?.icon || User : User);
+  const roleLabel = isAdminSession ? 'Admin' : (primaryRole ? roleLabels[primaryRole]?.label || 'User' : 'User');
 
   return (
     <motion.nav
@@ -107,7 +150,19 @@ export function Navbar() {
 
           {/* Auth & Emergency CTA */}
           <div className="hidden md:flex items-center gap-3">
-            {user ? (
+            {isAdminSession ? (
+              // Admin session UI: show admin label and a prominent Sign Out
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Shield className="w-4 h-4" />
+                  Admin
+                </Button>
+                <Button onClick={handleSignOut} variant="destructive" size="sm" className="gap-2">
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </Button>
+              </div>
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-2">
@@ -223,7 +278,22 @@ export function Navbar() {
               );
             })}
             
-            {user ? (
+            {isAdminSession ? (
+              <>
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <Shield className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Admin</span>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start gap-3"
+                  onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
+                >
+                  <LogOut className="w-5 h-5" />
+                  Sign Out
+                </Button>
+              </>
+            ) : user ? (
               <>
                 <div className="flex items-center gap-2 px-3 py-2">
                   <RoleIcon className="w-4 h-4 text-primary" />

@@ -71,11 +71,16 @@ export default function Register() {
 
   useEffect(() => {
     const roleParam = searchParams.get('type');
-    if (
-      roleParam &&
-      ['patient', 'donor', 'hospital_staff', 'blood_bank', 'volunteer', 'admin'].includes(roleParam)
-    ) {
-      setSelectedRole(roleParam as UserRoleType);
+    if (roleParam) {
+      if (roleParam === 'admin') {
+        // If URL requests admin type, redirect to admin login
+        navigate('/dashboard/admin');
+        return;
+      }
+
+      if (['patient', 'donor', 'hospital_staff', 'blood_bank', 'volunteer'].includes(roleParam)) {
+        setSelectedRole(roleParam as UserRoleType);
+      }
     }
   }, [searchParams]);
 
@@ -90,7 +95,15 @@ export default function Register() {
   };
 
   const handleContinueToDetails = () => {
-    if (selectedRole) setStep('details');
+    if (!selectedRole) return;
+
+    // If admin card clicked, send user directly to admin login/dashboard
+    if (selectedRole === 'admin') {
+      navigate('/dashboard/admin');
+      return;
+    }
+
+    setStep('details');
   };
 
   const handleBack = () => setStep('role');
@@ -172,12 +185,7 @@ export default function Register() {
     }
   };
 
-  setTimeout(() => {
-  navigate(getRedirectPath({
-    primary_role: selectedRole,
-    is_verified: selectedRole === "patient"
-  }));
-}, 1500);
+  // removed unconditional redirect: navigation should only occur after successful registration
 
   /* =========================
      NOTHING BELOW THIS TOUCHED
