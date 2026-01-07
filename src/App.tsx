@@ -17,7 +17,7 @@ import Auth from "@/pages/Auth";
 import Register from "@/pages/Register";
 import BloodBanks from "@/pages/BloodBanks";
 import EmergencyStatusPage from "@/pages/EmergencyStatus";
-import HospitalDashboard from "@/pages/HospitalDashboard";
+import HospitalDashboard from "@/pages/hospital/HospitalDashboard";
 import PatientDashboard from "@/patient/PatientDashboard";
 //import DonorDashboard from "@/pages/DonorDashboard";
 import DonorDashboard from "@/donor/DonorDashboard";
@@ -60,6 +60,13 @@ const App = () => {
 
               {/* Dashboards */}
               <Route path="/hospital" element={<HospitalDashboard />} />
+              <Route path="/hospital/overview" element={<HospitalDashboard />} />
+              <Route path="/hospital/emergencies" element={<HospitalDashboard />} />
+              <Route path="/hospital/blood" element={<HospitalDashboard />} />
+              <Route path="/hospital/live" element={<HospitalDashboard />} />
+              <Route path="/hospital/history" element={<HospitalDashboard />} />
+              <Route path="/hospital/notifications" element={<HospitalDashboard />} />
+              <Route path="/hospital/profile" element={<HospitalDashboard />} />
               <Route
                 path="/dashboard/patient"
                 element={<PatientDashboard />}
