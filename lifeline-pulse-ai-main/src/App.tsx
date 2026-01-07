@@ -38,13 +38,9 @@ const App = () => (
             <Route path="/register" element={<Register />} />
             <Route path="/blood-banks" element={<BloodBanks />} />
             <Route path="/status/:requestId" element={<EmergencyStatusPage />} />
-<<<<<<< Updated upstream:lifeline-pulse-ai-main/src/App.tsx
-            <Route path="/hospital" element={<HospitalDashboard />} />
-=======
             <Route path="/hospital/*" element={<HospitalDashboard />} />
 
             {/* PATIENT DASHBOARD */}
->>>>>>> Stashed changes:src/App.tsx
             <Route path="/dashboard/patient" element={<PatientDashboard />} />
             <Route path="/dashboard/donor" element={<DonorDashboard />} />
             <Route path="/dashboard/admin" element={<AdminDashboard />} />
