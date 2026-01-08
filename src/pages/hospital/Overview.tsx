@@ -217,12 +217,78 @@ export default function Overview() {
             </div>
           </CardContent>
         </Card>
+        {/* Visual Analytics */}
+        <Card>
+          <CardContent>
+            <h3 className="font-semibold text-slate-900 mb-3">Visual Analytics</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Requests (recent)</p>
+                <div className="w-full h-24 bg-white p-2 rounded-md border border-border">
+                  <Sparkline data={computeHourlyCounts(emergencies)} />
+                </div>
+              </div>
 
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Blood Stock Distribution</p>
+                <div className="w-full h-24 bg-white p-2 rounded-md border border-border flex items-center justify-center">
+                  <StockBars stock={hospitalStock} />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         
       </div>
 
       {/* Recent Activity */}
 
+    </div>
+  );
+}
+
+// Simple helper: compute counts per hour (last 12 buckets)
+function computeHourlyCounts(emergencies: any[]) {
+  const now = Date.now();
+  const hourMs = 1000 * 60 * 60;
+  const buckets = new Array(12).fill(0);
+  emergencies.forEach((e) => {
+    const t = new Date(e.created_at).getTime();
+    const hoursAgo = Math.floor((now - t) / hourMs);
+    if (hoursAgo >= 0 && hoursAgo < 12) buckets[11 - hoursAgo]++;
+  });
+  return buckets;
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  const width = 300;
+  const height = 60;
+  const max = Math.max(...data, 1);
+  const points = data.map((v, i) => `${(i / (data.length - 1)) * width},${height - (v / max) * height}`);
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      <polyline fill="none" stroke="#0EA5A4" strokeWidth={2} points={points.join(" ")} />
+    </svg>
+  );
+}
+
+function StockBars({ stock }: { stock: any }) {
+  if (!stock || typeof stock !== 'object') return <div className="text-sm text-muted-foreground">No stock data</div>;
+  const entries = Object.entries(stock).slice(0, 6);
+  const total = entries.reduce((s, [, v]) => s + Number(v || 0), 0) || 1;
+  return (
+    <div className="w-full flex items-center gap-2 px-2">
+      {entries.map(([k, v]) => {
+        const pct = Math.round((Number(v) / total) * 100);
+        return (
+          <div key={k} className="flex-1 text-center text-xs">
+            <div className="h-6 bg-slate-100 rounded-md flex items-end">
+              <div style={{ height: `${Math.round((Number(v) / total) * 100)}%` }} className="w-full bg-primary rounded-b-md"></div>
+            </div>
+            <div className="mt-1">{k} ({pct}%)</div>
+          </div>
+        );
+      })}
     </div>
   );
 }

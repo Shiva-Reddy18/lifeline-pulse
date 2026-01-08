@@ -31,7 +31,7 @@ import ProfileSettings from "./ProfileSettings";
 export default function HospitalDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, logout } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const hospitalName = profile?.full_name ?? profile?.hospital_name ?? "Hospital";
@@ -49,7 +49,11 @@ export default function HospitalDashboard() {
   ];
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      await signOut();
+    } catch (e) {
+      console.warn("signOut failed", e);
+    }
     navigate("/");
   };
 
