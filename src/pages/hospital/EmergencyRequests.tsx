@@ -122,6 +122,58 @@ export default function EmergencyRequests() {
     setNote("");
   };
 
+  const openRoute = async (r: EmergencyRequest) => {
+    try {
+      // Get patient location
+      const patientLat = (r as any).latitude ?? (r as any).location_lat;
+      const patientLng = (r as any).longitude ?? (r as any).location_lng;
+
+      if (!patientLat || !patientLng) {
+        console.log("Patient location missing");
+        return;
+      }
+
+      // If no hospital ID, just open patient location
+      if (!hospitalId) {
+        console.log("Hospital ID missing, opening patient location only");
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${patientLat},${patientLng}`)}`;
+        window.open(url, "_blank");
+        return;
+      }
+
+      // Fetch hospital location from Supabase
+      const { data: hospitals, error } = await supabase
+        .from("hospitals")
+        .select("location_lat,location_lng")
+        .eq("id", hospitalId);
+
+      if (error) {
+        console.error("Error fetching hospital:", error);
+        // Fallback: open patient location only
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${patientLat},${patientLng}`)}`;
+        window.open(url, "_blank");
+        return;
+      }
+
+      if (!hospitals || hospitals.length === 0 || !hospitals[0].location_lat || !hospitals[0].location_lng) {
+        console.log("Hospital location missing, opening patient location only");
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${patientLat},${patientLng}`)}`;
+        window.open(url, "_blank");
+        return;
+      }
+
+      const hospital = hospitals[0];
+      // Open Google Maps directions from hospital to patient
+      const origin = `${hospital.location_lat},${hospital.location_lng}`;
+      const destination = `${patientLat},${patientLng}`;
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+      window.open(url, "_blank");
+    } catch (e) {
+      console.error("Error opening route:", e);
+      return;
+    }
+  };
+
   const confirmAccept = async () => {
     if (!selectedRequest) return;
     setAccepting(true);
@@ -152,31 +204,6 @@ export default function EmergencyRequests() {
     }
   };
 
-  const renderLocation = (r: EmergencyRequest) => {
-    if (r.latitude != null && r.longitude != null) {
-      return (
-        <div className="w-full h-48 rounded-md overflow-hidden border border-border">
-          <LiveMap
-            markers={[{ lat: r.latitude, lng: r.longitude, label: r.patient_name ?? "Patient" }]}
-            center={{ lat: r.latitude, lng: r.longitude }}
-            zoom={14}
-            className="w-full h-48"
-          />
-        </div>
-      );
-    }
-
-    return (
-      <div className="w-full h-48 rounded-md border border-dashed border-border flex items-center justify-center text-sm text-muted-foreground">
-        <div className="text-center">
-          <MapPin className="mx-auto mb-2 w-5 h-5 text-primary" />
-          <div>Location not available</div>
-          <div className="text-xs text-muted-foreground">Call patient for directions</div>
-        </div>
-      </div>
-    );
-  };
-
   const getSeverityBadge = (request: EmergencyRequest) => {
     if (request.severity === "CRITICAL") {
       return <Badge className="bg-red-600">CRITICAL</Badge>;
@@ -187,99 +214,123 @@ export default function EmergencyRequests() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="h-screen flex flex-col gap-0">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b bg-white">
         <h2 className="text-2xl font-bold text-slate-900">Incoming Emergencies</h2>
         <Button variant="outline" onClick={handleRefresh} className="gap-2">
           <RefreshCw className="w-4 h-4" /> Refresh
         </Button>
       </div>
 
-      {isLoading ? (
-        <Card>
-          <CardContent className="p-6 text-center">Loading emergencies…</CardContent>
-        </Card>
-      ) : isError ? (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-6 text-center text-destructive">Failed to load emergencies</CardContent>
-        </Card>
-      ) : emergencies.length === 0 ? (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-lg font-semibold mb-2">No new emergencies</div>
-            <div className="text-sm text-muted-foreground">When a patient creates an emergency it will appear here.</div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {emergencies.map((r) => (
-            <motion.div
-              key={r.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card className="overflow-hidden hover:shadow-md transition-shadow">
-                <CardContent className="p-0">
-                  <div className="grid md:grid-cols-3 gap-4 p-4">
-                    {/* Left: Patient Info */}
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground uppercase mb-2">Patient</div>
-                      <div className="font-semibold">{r.patient_name ?? "Unknown"}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{r.address ?? "Address not available"}</div>
+      {/* Main Content: Sidebar + Map */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar: Emergency List */}
+        <div className="w-96 border-r bg-white overflow-y-auto">
+          {isLoading ? (
+            <Card className="m-4">
+              <CardContent className="p-6 text-center">Loading emergencies…</CardContent>
+            </Card>
+          ) : isError ? (
+            <Card className="m-4 border-destructive/20 bg-destructive/5">
+              <CardContent className="p-6 text-center text-destructive">Failed to load emergencies</CardContent>
+            </Card>
+          ) : emergencies.length === 0 ? (
+            <Card className="m-4">
+              <CardContent className="p-6 text-center">
+                <div className="text-lg font-semibold mb-2">No new emergencies</div>
+                <div className="text-sm text-muted-foreground">When a patient creates an emergency it will appear here.</div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2 p-4">
+              {emergencies.map((r) => (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer hover:bg-slate-50">
+                    <CardContent className="p-4">
+                      {/* Patient Name & Blood Group */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="font-semibold text-slate-900">{r.patient_name ?? "Unknown"}</div>
+                          <div className="text-xs text-muted-foreground">{r.address ?? "Address not available"}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-red-600">{r.blood_group}</div>
+                          <div className="text-xs text-muted-foreground">Units: {r.units_required ?? 1}</div>
+                        </div>
+                      </div>
+
+                      {/* Severity & Time */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div>{getSeverityBadge(r)}</div>
+                        <div className="text-xs text-muted-foreground">{timeAgo(r.created_at)}</div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1 bg-green-600 hover:bg-green-700 gap-2 h-8 text-xs"
+                          onClick={() => openAcceptDialog(r)}
+                        >
+                          <Check className="w-3 h-3" /> Accept
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="flex-1 gap-2 h-8 text-xs"
+                          onClick={() => openRoute(r)}
+                        >
+                          <AlertTriangle className="w-3 h-3" /> Route
+                        </Button>
+                      </div>
+
+                      {/* Call Button */}
                       {r.patient_phone && (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="mt-3 w-full gap-2"
+                          className="w-full mt-2 gap-2 text-xs h-8"
                           onClick={() => window.open(`tel:${r.patient_phone}`, "_self")}
                         >
-                          <Phone className="w-3 h-3" /> Call
+                          <Phone className="w-3 h-3" /> Call Patient
                         </Button>
                       )}
-                    </div>
-
-                    {/* Middle: Blood & Time Info */}
-                    <div>
-                      <div className="space-y-3">
-                        <div>
-                          <div className="text-xs font-medium text-muted-foreground uppercase">Blood Group</div>
-                          <div className="text-2xl font-bold text-red-600 mt-1">{r.blood_group}</div>
-                          <div className="text-xs text-muted-foreground mt-1">Units: {r.units_required ?? 1}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-medium text-muted-foreground uppercase">Severity</div>
-                          <div className="mt-1">{getSeverityBadge(r)}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-medium text-muted-foreground uppercase">Requested</div>
-                          <div className="text-sm font-medium mt-1">{timeAgo(r.created_at)}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right: Map & Actions */}
-                    <div className="flex flex-col gap-3">
-                      {renderLocation(r)}
-                      <div className="flex gap-2">
-                        <Button
-                          className="flex-1 bg-green-600 hover:bg-green-700 gap-2"
-                          onClick={() => openAcceptDialog(r)}
-                        >
-                          <Check className="w-4 h-4" /> Accept
-                        </Button>
-                        <Button variant="outline" className="flex-1 gap-2">
-                          <AlertTriangle className="w-4 h-4" /> Route
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Map Area */}
+        <div className="flex-1">
+          {emergencies.length > 0 ? (
+            <LiveMap
+              markers={emergencies.map((r) => ({
+                id: r.id,
+                lat: (r as any).latitude ?? (r as any).location_lat ?? 0,
+                lng: (r as any).longitude ?? (r as any).location_lng ?? 0,
+                label: r.patient_name ?? "Patient",
+                type: "patient",
+              }))}
+              center={{ lat: (emergencies[0] as any).latitude ?? (emergencies[0] as any).location_lat ?? 0, lng: (emergencies[0] as any).longitude ?? (emergencies[0] as any).location_lng ?? 0 }}
+              showRoute={true}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-900">
+              <div className="text-center text-muted-foreground">
+                <MapPin className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="text-sm">No emergencies to display</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Accept Dialog */}
       <Dialog open={!!selectedRequest} onOpenChange={(open) => { if (!open) setSelectedRequest(null); }}>

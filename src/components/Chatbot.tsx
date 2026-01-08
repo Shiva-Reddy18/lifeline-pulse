@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send, Mic, Heart, Bot, User } from 'lucide-react';
+import { MessageCircle, X, Send, Mic, Heart, Bot, User, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
+import { analyzeHealthSymptoms, generateHealthResponse, isEmergencySituation, loadExternalHealthData } from '@/lib/healthChatbot';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -32,10 +33,18 @@ export function Chatbot() {
     if (isOpen && messages.length === 0) {
       setMessages([{
         role: 'assistant',
-        content: "🩸 Hello! I'm the LIFELINE-X Emergency Assistant. How can I help you today?\n\nI can:\n• Guide you through emergencies\n• Help find blood banks\n• Answer questions about donation\n• Detect emergencies from your message\n\nహాయ్! నేను సహాయం చేయగలను. (Telugu)\nनमस्ते! मैं मदद कर सकता हूं। (Hindi)"
+        content: "🩸 Hello! I'm the LIFELINE-X Health Assistant. How can I help you today?\n\n**I can:**\n• 🏥 Analyze your health symptoms\n• 🔍 Suggest possible conditions\n• ⚕️ Provide medical precautions\n• 🚨 Detect emergency situations\n• 🩸 Guide you to blood banks\n\n**Describe your symptoms clearly.** For example: 'I have a high fever and chest pain' or 'I'm experiencing dizziness and nausea'."
       }]);
     }
   }, [isOpen, messages.length]);
+
+  // Try loading any external CSV datasets placed in public/health_chatbot/
+  useEffect(() => {
+    loadExternalHealthData().catch(err => {
+      // not fatal; continue with built-in rules
+      console.warn('Failed to load external health chatbot data', err);
+    });
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -46,70 +55,24 @@ export function Chatbot() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [...messages, { role: 'user', content: userMessage }]
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Chat failed');
+      // Check for emergency situation
+      if (isEmergencySituation(userMessage)) {
+        const emergencyMessage = `🚨 **EMERGENCY DETECTED!**\n\nBased on your message, you may be in an emergency situation. **PLEASE CALL EMERGENCY SERVICES (911/999) IMMEDIATELY** or go to the nearest hospital.\n\nDon't wait - get professional medical help NOW!\n\nAfter seeking medical help, you can tell me more about your symptoms and I'll provide additional guidance.`;
+        setMessages(prev => [...prev, { role: 'assistant', content: emergencyMessage }]);
+        setIsLoading(false);
+        return;
       }
 
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantMessage = '';
+      // Analyze health symptoms
+      const analysis = analyzeHealthSymptoms(userMessage);
+      const assistantMessage = generateHealthResponse(analysis, userMessage);
 
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') continue;
-            
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                assistantMessage += content;
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  newMessages[newMessages.length - 1] = { 
-                    role: 'assistant', 
-                    content: assistantMessage 
-                  };
-                  return newMessages;
-                });
-              }
-            } catch {
-              // Ignore parse errors for incomplete chunks
-            }
-          }
-        }
-      }
-
-      // Check for emergency detection in the response
-      if (assistantMessage.toLowerCase().includes('emergency') && 
-          assistantMessage.toLowerCase().includes('button')) {
-        // Could trigger a visual indicator here
-      }
-    } catch (e) {
-      console.error('Chat error:', e);
+      setMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+    } catch (error) {
+      console.error('Chat error:', error);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "I'm having trouble connecting. For emergencies, please use the big red EMERGENCY button on the homepage." 
+        content: '❌ Sorry, I encountered an error. Please try again with a clear description of your symptoms.' 
       }]);
     } finally {
       setIsLoading(false);

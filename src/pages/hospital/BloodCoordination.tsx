@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import getBloodBankUnitsByEmailAndName, { watchBloodBankUnitsByEmailAndName } from "@/lib/supabaseHelpers";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,11 +33,18 @@ export default function BloodCoordination() {
   const [contactMessage, setContactMessage] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Fetch blood bank connections
+  const bloodTypes = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
+  const [inventory, setInventory] = useState<Record<string, number>>(() => {
+    return bloodTypes.reduce((acc, t) => ({ ...acc, [t]: 0 }), {} as Record<string, number>);
+  });
+
+  const { profile } = useAuth();
+  const hospitalId = profile?.id ?? null;
+
+  // Fetch blood bank connections (mocked via react-query) and keep local state for additions
   const { data: bloodBanks = [] } = useQuery({
     queryKey: ["blood-banks"],
     queryFn: async () => {
-      // Mock data - replace with actual API call
       return [
         {
           id: "bb1",
@@ -57,13 +66,105 @@ export default function BloodCoordination() {
     },
   });
 
-  // Fetch donor availability
-  const { data: donorStats = { available: 45, on_duty: 12 } } = useQuery({
+  const [bloodBanksState, setBloodBanksState] = useState<BloodBank[]>([]);
+  useEffect(() => {
+    setBloodBanksState(bloodBanks as BloodBank[]);
+  }, [bloodBanks]);
+
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newBankName, setNewBankName] = useState("");
+  const [newBankPhone, setNewBankPhone] = useState("");
+  const [newBankEmail, setNewBankEmail] = useState("");
+  const [newBankDistance, setNewBankDistance] = useState("");
+
+  // Fetch donor availability from Supabase donors table
+  const { data: donorStats = { available: 0 }, isLoading: donorLoading } = useQuery({
     queryKey: ["donor-availability"],
     queryFn: async () => {
-      return { available: 45, on_duty: 12 };
+      try {
+        const { data: donors, error } = await supabase.from("donors").select("id");
+        if (error) throw error;
+        return { available: donors?.length || 0 };
+      } catch (e) {
+        console.error("Error fetching donors:", e);
+        return { available: 0 };
+      }
     },
   });
+
+  // Fetch persisted inventory for this hospital (if hospitalId is available)
+  useEffect(() => {
+    let mounted = true;
+    const fetchInventory = async () => {
+      if (!hospitalId) return;
+      try {
+        const { data, error } = await supabase
+          .from("blood_inventory")
+          .select("blood_type, units")
+          .eq("hospital_id", hospitalId);
+        if (error) throw error;
+        const map: Record<string, number> = { ...inventory };
+        (data || []).forEach((row: any) => {
+          map[row.blood_type] = row.units;
+        });
+        if (mounted) setInventory(map);
+      } catch (e) {
+        console.error("Error fetching inventory:", e);
+      }
+    };
+    fetchInventory();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hospitalId]);
+
+  // If a specific blood bank owner/email is provided, fetch their stock and watch for updates.
+  useEffect(() => {
+    // Example record provided by user
+    const ownerEmail = 'Maheshbabu@gmail.com';
+    const ownerName = 'Shiva Reddy';
+
+    let stop: (() => void) | null = null;
+
+    (async () => {
+      const bank = await getBloodBankUnitsByEmailAndName(ownerEmail, ownerName);
+      if (bank) {
+        // Map stock to inventory state (use keys that match our bloodTypes)
+        const map: Record<string, number> = { ...inventory };
+        Object.entries(bank.stock || {}).forEach(([k, v]) => {
+          map[k] = typeof v === 'number' ? v : Number(v || 0);
+        });
+        setInventory(map);
+
+        // Start polling watcher to keep values reflected "every time"
+        stop = watchBloodBankUnitsByEmailAndName(ownerEmail, ownerName, (res) => {
+          if (!res) return;
+          const next: Record<string, number> = { ...inventory };
+          Object.entries(res.stock || {}).forEach(([k, v]) => {
+            next[k] = typeof v === 'number' ? v : Number(v || 0);
+          });
+          setInventory(next);
+        }, 5000);
+      }
+    })();
+
+    return () => {
+      if (stop) stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const upsertInventory = async (bloodType: string, units: number) => {
+    if (!hospitalId) return;
+    try {
+      const payload = { hospital_id: hospitalId, blood_type: bloodType, units };
+      const { error } = await supabase.from("blood_inventory").upsert(payload, { onConflict: ["hospital_id", "blood_type"] });
+      if (error) throw error;
+    } catch (e) {
+      console.error("Error upserting inventory:", e);
+    }
+  };
 
   const handleContactBank = async () => {
     setSending(true);
@@ -89,7 +190,7 @@ export default function BloodCoordination() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"].map((bloodType) => (
+            {bloodTypes.map((bloodType) => (
               <motion.div
                 key={bloodType}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -97,8 +198,33 @@ export default function BloodCoordination() {
                 className="p-3 border rounded-lg text-center hover:border-red-300 transition-colors"
               >
                 <div className="text-2xl font-bold text-red-600">{bloodType}</div>
-                <div className="text-xs text-muted-foreground mt-1">0 units</div>
-                <div className="text-xs text-yellow-600 mt-1">Low Stock</div>
+                <div className="flex flex-col items-center justify-center gap-2 mt-2">
+                  <div className="text-sm text-muted-foreground">{inventory[bloodType]} units</div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const newVal = Math.max(0, (inventory[bloodType] || 0) - 1);
+                        setInventory((prev) => ({ ...prev, [bloodType]: newVal }));
+                        await upsertInventory(bloodType, newVal);
+                      }}
+                    >
+                      Reduce Unit
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const newVal = (inventory[bloodType] || 0) + 1;
+                        setInventory((prev) => ({ ...prev, [bloodType]: newVal }));
+                        await upsertInventory(bloodType, newVal);
+                      }}
+                    >
+                      Add Unit
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-xs text-yellow-600 mt-2">{inventory[bloodType] < 5 ? "Low Stock" : ""}</div>
               </motion.div>
             ))}
           </div>
@@ -120,20 +246,6 @@ export default function BloodCoordination() {
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase">On Duty</p>
-                <p className="text-4xl font-bold mt-2">{donorStats.on_duty}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <Hospital className="w-5 h-5 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Blood Bank Connections */}
@@ -141,12 +253,17 @@ export default function BloodCoordination() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Connected Blood Banks</span>
-            <Badge>2 Active</Badge>
+            <div className="flex items-center gap-2">
+              <Badge>{bloodBanksState.length} Active</Badge>
+              <Button size="sm" onClick={() => setAddDialogOpen(true)} className="gap-2">
+                <Plus className="w-4 h-4" /> Add Blood Bank
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {bloodBanks.map((bank) => (
+            {bloodBanksState.map((bank) => (
               <motion.div
                 key={bank.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -192,6 +309,59 @@ export default function BloodCoordination() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add Blood Bank Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={(open) => setAddDialogOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Blood Bank</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-muted-foreground">Name</label>
+              <Input value={newBankName} onChange={(e) => setNewBankName(e.target.value)} className="mt-2" />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Phone</label>
+              <Input value={newBankPhone} onChange={(e) => setNewBankPhone(e.target.value)} className="mt-2" />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Email</label>
+              <Input value={newBankEmail} onChange={(e) => setNewBankEmail(e.target.value)} className="mt-2" />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Distance</label>
+              <Input value={newBankDistance} onChange={(e) => setNewBankDistance(e.target.value)} className="mt-2" />
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setAddDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const id = `bb-${Date.now()}`;
+                  const newBank: BloodBank = {
+                    id,
+                    name: newBankName || "New Blood Bank",
+                    phone: newBankPhone || "",
+                    email: newBankEmail || "",
+                    distance: newBankDistance || "",
+                    available_units: { "O+": 0, "O-": 0, "A+": 0, "A-": 0, "B+": 0, "B-": 0, "AB+": 0, "AB-": 0 },
+                  };
+                  setBloodBanksState((prev) => [newBank, ...prev]);
+                  setAddDialogOpen(false);
+                  setNewBankName("");
+                  setNewBankPhone("");
+                  setNewBankEmail("");
+                  setNewBankDistance("");
+                }}
+              >
+                Add Bank
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Contact Bank Dialog */}
       <Dialog open={!!selectedBank} onOpenChange={(open) => { if (!open) setSelectedBank(null); }}>

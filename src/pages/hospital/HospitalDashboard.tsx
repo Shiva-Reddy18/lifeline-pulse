@@ -24,7 +24,6 @@ import {
 import Overview from "./Overview";
 import EmergencyRequests from "./EmergencyRequests";
 import BloodCoordination from "./BloodCoordination";
-import LiveTracking from "./LiveTracking";
 import HistoryRecords from "./HistoryRecords";
 import Notifications from "./Notifications";
 import ProfileSettings from "./ProfileSettings";
@@ -44,7 +43,6 @@ export default function HospitalDashboard() {
     { icon: BarChart3, label: "Overview", id: "overview", path: "/hospital/overview" },
     { icon: AlertTriangle, label: "Emergency Requests", id: "emergencies", path: "/hospital/emergencies" },
     { icon: Droplet, label: "Blood Coordination", id: "blood", path: "/hospital/blood" },
-    { icon: Navigation, label: "Live Case Tracking", id: "live", path: "/hospital/live" },
     { icon: FileText, label: "History & Records", id: "history", path: "/hospital/history" },
     { icon: Clock, label: "Notifications", id: "notifications", path: "/hospital/notifications" },
     { icon: Settings, label: "Profile & Settings", id: "profile", path: "/hospital/profile" },
@@ -67,8 +65,6 @@ export default function HospitalDashboard() {
         return <EmergencyRequests />;
       case "blood":
         return <BloodCoordination />;
-      case "live":
-        return <LiveTracking />;
       case "history":
         return <HistoryRecords />;
       case "notifications":

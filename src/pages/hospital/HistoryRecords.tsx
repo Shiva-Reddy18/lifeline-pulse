@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -30,9 +31,11 @@ interface HistoryRecord {
 }
 
 export default function HistoryRecords() {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("date_desc");
+  const [downloading, setDownloading] = useState(false);
 
   // Mock historical data
   const records: HistoryRecord[] = [
@@ -114,6 +117,51 @@ export default function HistoryRecords() {
     return 0;
   });
 
+  const handleDownloadCSV = async () => {
+    setDownloading(true);
+    try {
+      // Generate CSV content
+      const headers = ["Date & Time", "Emergency ID", "Patient", "Blood Group", "Units", "Hospital Action", "Status"];
+      const rows = sortedRecords.map(r => [
+        r.date,
+        r.emergencyId,
+        r.patientName,
+        r.bloodGroup,
+        r.units,
+        r.hospitalAction,
+        r.status
+      ]);
+      
+      let csv = headers.join(",") + "\n";
+      rows.forEach(row => {
+        csv += row.map(cell => `"${cell}"`).join(",") + "\n";
+      });
+      
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `emergency_records_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Downloaded",
+        description: "Emergency records CSV downloaded successfully."
+      });
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: "Failed to download CSV. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-slate-900">History & Records</h2>
@@ -164,9 +212,14 @@ export default function HistoryRecords() {
             </div>
 
             <div className="flex items-end">
-              <Button className="w-full gap-2" variant="outline">
+              <Button 
+                className="w-full gap-2" 
+                variant="outline"
+                onClick={handleDownloadCSV}
+                disabled={downloading}
+              >
                 <Download className="w-4 h-4" />
-                Download CSV
+                {downloading ? "Downloading..." : "Download CSV"}
               </Button>
             </div>
           </div>

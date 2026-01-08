@@ -27,6 +27,7 @@ import {
   EyeOff,
   Save,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface HospitalProfile {
   hospitalName: string;
@@ -43,6 +44,7 @@ interface HospitalProfile {
 }
 
 export default function ProfileSettings() {
+  const { toast } = useToast();
   const [profile, setProfile] = useState<HospitalProfile>({
     hospitalName: "City Central Hospital",
     licenseNumber: "HOS-2024-12345",
@@ -62,6 +64,7 @@ export default function ProfileSettings() {
   const [editValues, setEditValues] = useState<Partial<HospitalProfile>>({});
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const handleEditStart = (field: keyof HospitalProfile) => {
     setEditingField(field);
@@ -74,11 +77,45 @@ export default function ProfileSettings() {
       [field]: editValues[field] ?? profile[field],
     });
     setEditingField(null);
+    toast({
+      title: "Saved",
+      description: `${field} has been updated successfully.`,
+    });
   };
 
   const handleCancel = () => {
     setEditingField(null);
     setEditValues({});
+  };
+
+  const handleDownload = async (fileType: "pdf" | "csv", fileName: string) => {
+    setDownloading(`${fileName}-${fileType}`);
+    try {
+      // Simulate file generation and download
+      const content = `Report: ${fileName}\nGenerated: ${new Date().toISOString()}\nHospital: ${profile.hospitalName}`;
+      const blob = new Blob([content], { type: fileType === "pdf" ? "application/pdf" : "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${fileName}.${fileType}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Downloaded",
+        description: `${fileName}.${fileType} has been downloaded.`,
+      });
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: "Failed to download file. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(null);
+    }
   };
 
   return (
@@ -97,11 +134,11 @@ export default function ProfileSettings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Lock className="w-5 h-5 text-slate-600" />
-            Hospital Profile (Admin Verified - Read Only)
+            <Unlock className="w-5 h-5 text-blue-600" />
+            Hospital Profile (Editable)
           </CardTitle>
           <CardDescription>
-            These fields are locked to prevent identity tampering
+            Update your hospital information
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -112,13 +149,52 @@ export default function ProfileSettings() {
               { label: "Hospital Type", value: profile.hospitalType, key: "hospitalType" },
               { label: "Verification Date", value: profile.verificationDate, key: "verificationDate" },
             ].map(({ label, value, key }) => (
-              <div key={key} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <div>
-                  <p className="text-sm text-muted-foreground">{label}</p>
-                  <p className="font-semibold text-slate-900">{value}</p>
-                </div>
-                <Lock className="w-4 h-4 text-slate-400" />
-              </div>
+              <motion.div
+                key={key}
+                className="p-3 border rounded-lg hover:border-blue-300 transition-colors"
+              >
+                {editingField === key ? (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{label}</label>
+                    <Input
+                      value={String(editValues[key as keyof HospitalProfile] ?? value)}
+                      onChange={(e) =>
+                        setEditValues({
+                          ...editValues,
+                          [key]: e.target.value,
+                        })
+                      }
+                      className="w-full"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 gap-1"
+                        onClick={() => handleEditSave(key as keyof HospitalProfile)}
+                      >
+                        <Save className="w-3 h-3" /> Save
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={handleCancel}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{label}</p>
+                      <p className="font-semibold text-slate-900 mt-1">{value}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEditStart(key as keyof HospitalProfile)}
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                )}
+              </motion.div>
             ))}
 
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
@@ -218,11 +294,11 @@ export default function ProfileSettings() {
         <CardContent>
           <div className="space-y-3">
             {[
-              { title: "Emergency Handling History", file: "emergency_history.pdf" },
-              { title: "Blood Allocation Reports", file: "blood_allocation.pdf" },
-              { title: "Donation Fulfillment Logs", file: "fulfillment_logs.csv" },
-              { title: "Admin Approval Decisions", file: "admin_approvals.pdf" },
-              { title: "Monthly Activity Summary", file: "monthly_summary.pdf" },
+              { title: "Emergency Handling History", file: "emergency_history" },
+              { title: "Blood Allocation Reports", file: "blood_allocation" },
+              { title: "Donation Fulfillment Logs", file: "fulfillment_logs" },
+              { title: "Admin Approval Decisions", file: "admin_approvals" },
+              { title: "Monthly Activity Summary", file: "monthly_summary" },
             ].map(({ title, file }) => (
               <div
                 key={file}
@@ -233,13 +309,25 @@ export default function ProfileSettings() {
                   <p className="text-xs text-muted-foreground mt-1">Last updated: 2 hours ago</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={() => handleDownload("pdf", file)}
+                    disabled={downloading === `${file}-pdf`}
+                  >
                     <Download className="w-4 h-4" />
-                    PDF
+                    {downloading === `${file}-pdf` ? "Downloading..." : "PDF"}
                   </Button>
-                  <Button size="sm" variant="outline" className="gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={() => handleDownload("csv", file)}
+                    disabled={downloading === `${file}-csv`}
+                  >
                     <Download className="w-4 h-4" />
-                    CSV
+                    {downloading === `${file}-csv` ? "Downloading..." : "CSV"}
                   </Button>
                 </div>
               </div>
@@ -248,70 +336,7 @@ export default function ProfileSettings() {
         </CardContent>
       </Card>
 
-      {/* Activity Logs */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Activity Logs (Read-Only)</CardTitle>
-          <CardDescription>
-            Audit trail of all your actions for compliance and dispute resolution
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            {[
-              { time: "2026-01-07 14:30", action: "Profile updated", details: "Coordinator email changed" },
-              { time: "2026-01-07 09:15", action: "Emergency accepted", details: "Request EMERG-2026-001" },
-              { time: "2026-01-06 18:45", action: "Blood allocation confirmed", details: "2 units O+ allocated" },
-              { time: "2026-01-05 22:00", action: "Profile viewed", details: "By Admin: admin-001" },
-              { time: "2026-01-04 10:30", action: "Login successful", details: "From IP 192.168.1.1" },
-            ].map((log, idx) => (
-              <div key={idx} className="flex items-center justify-between p-2 border rounded bg-slate-50">
-                <div>
-                  <p className="font-medium">{log.action}</p>
-                  <p className="text-xs text-muted-foreground">{log.details}</p>
-                </div>
-                <p className="text-xs text-muted-foreground">{log.time}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Security & Access */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-slate-600" />
-            Security & Access
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={() => setShowPasswordDialog(true)}
-            >
-              <Lock className="w-4 h-4" />
-              Change Password
-            </Button>
-            <Button variant="outline" className="w-full justify-start gap-2">
-              <Shield className="w-4 h-4" />
-              Enable 2-Step Verification
-            </Button>
-            <Button variant="outline" className="w-full justify-start gap-2">
-              <LogOut className="w-4 h-4" />
-              Logout from All Sessions
-            </Button>
-            <Alert className="border-yellow-200 bg-yellow-50">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800">
-                You cannot change your role or disable admin monitoring
-              </AlertDescription>
-            </Alert>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Logout Section */}
       <div className="flex gap-3">

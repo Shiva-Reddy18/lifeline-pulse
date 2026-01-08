@@ -1,0 +1,14 @@
+# AI Health Chatbot Dataset (Placeholder)
+
+This folder is a local copy placeholder of the files you listed:
+
+- Health_Chat_bot.py
+- README.mdd
+- Data/dataset.csv
+- Data/Testing.csv
+- Data/Training.csv
+- MasterData/symptom_Description.csv
+- MasterData/symptom_precaution.csv
+- MasterData/Symptom_severity.csv
+
+Please copy the original files from your Downloads folder into this location `public/health_chatbot/` so the web app can load them at runtime.
