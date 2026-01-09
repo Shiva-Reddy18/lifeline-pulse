@@ -215,7 +215,7 @@ export default function Index() {
   // UI blocks: stats, features — kept same style as your earlier file
   const stats = [
     { value: '24/7', label: 'Available', icon: Clock },
-    { value: '500+', label: 'Hospitals', icon: Hospital },
+    { value: '50+', label: 'Hospitals', icon: Hospital },
     { value: '10K+', label: 'Donors', icon: Users },
     { value: '< 2hr', label: 'Response', icon: Zap },
   ];

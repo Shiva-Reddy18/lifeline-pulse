@@ -91,17 +91,39 @@ export default function EmergencyBloodRequest() {
 
     try {
       setIsSending(true);
+      // 🔐 Prevent multiple active emergencies from same patient
+const { data: existingRequest } = await supabase
+  .from("emergency_requests")
+  .select("id")
+  .eq("patient_id", user.id)
+  .in("status", ["pending", "verified", "needs_donors"])
+  .maybeSingle();
+
+if (existingRequest) {
+  toast({
+    title: "Emergency already active",
+    description:
+      "Hospitals are already processing your previous emergency request.",
+    variant: "destructive",
+  });
+  setIsSending(false);
+  return;
+}
+
 
       const { error } = await supabase.from("emergency_requests").insert({
-        patient_id: user.id,
-        patient_name: profile.full_name,
-        patient_phone: profile.phone,
-        blood_group: profile.blood_group,
-        address: profile.address,
-        latitude,
-        longitude,
-        status: "active",
-      });
+  patient_id: user.id,
+  patient_name: profile.full_name,
+  patient_phone: profile.phone,
+  blood_group: profile.blood_group,
+  address: profile.address,
+  latitude,
+  longitude,
+  status: "pending",          // 🔥 not active
+  verified_by_hospital: false,
+  needs_donors: false,
+});
+
 
       if (error) {
         console.error("❌ Emergency insert error:", error);
@@ -109,9 +131,10 @@ export default function EmergencyBloodRequest() {
       }
 
       toast({
-        title: "Emergency Alert Sent 🚨",
-        description: "Nearby donors and hospitals are being notified.",
-      });
+  title: "Emergency sent",
+  description: "Nearby hospitals are verifying your request.",
+});
+
     } catch (err: any) {
       toast({
         title: "Emergency failed",
@@ -170,26 +193,46 @@ export default function EmergencyBloodRequest() {
     }
   }, [pendingEmergency, latitude, longitude, profile]);
 
-  return (
-    <Card className="border-none p-8 flex flex-col items-center justify-center min-h-[420px]">
-      <h2 className="text-lg font-medium text-gray-700 mb-6">
-        Emergency Blood Request
+return (
+  <Card className="border border-red-200 bg-red-50 p-10 flex flex-col items-center justify-center min-h-[440px] shadow-sm relative overflow-hidden">
+
+    
+    {/* Heading */}
+    <div className="text-center mb-8">
+      <h2 className="text-2xl font-bold text-red-700">
+        One-Tap Emergency
       </h2>
-
-      <EmergencyButton
-        onTrigger={handleEmergencyClick}
-        isLoading={isSending || locationLoading || profileLoading}
-      />
-
-      <p className="mt-10 text-sm text-muted-foreground text-center max-w-xs">
-        Tap for urgent blood requests. Help is nearby.
+      <p className="text-sm text-red-500 mt-2">
+        Instantly alert nearby hospitals for urgent blood
       </p>
+    </div>
 
-      {locationError && (
-        <p className="mt-4 text-xs text-red-500">
-          Location error: {locationError}
-        </p>
-      )}
-    </Card>
-  );
+    {/* Button */}
+   <div className="my-10 flex justify-center">
+  <EmergencyButton
+    onTrigger={handleEmergencyClick}
+    isLoading={isSending || locationLoading || profileLoading}
+  />
+</div>
+
+    {/* Status */}
+   <div className="mt-12 text-center max-w-md">
+
+      <p className="text-sm text-gray-600">
+        Your saved medical profile will be used.
+      </p>
+      <p className="text-xs text-muted-foreground mt-1">
+        Hospitals verify before contacting donors.
+      </p>
+    </div>
+
+    {/* Location error */}
+    {locationError && (
+      <div className="mt-6 bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm">
+        Location access is required to send emergency.
+      </div>
+    )}
+  </Card>
+);
+
 }

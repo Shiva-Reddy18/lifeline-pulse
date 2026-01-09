@@ -35,7 +35,7 @@ const roleLabels: Record<string, { label: string; icon: React.ElementType }> = {
   attender: { label: 'Attender', icon: User },
   donor: { label: 'Donor', icon: Droplet },
   hospital_staff: { label: 'Hospital', icon: HospitalIcon },
-  blood_bank: { label: 'Blood Bank', icon: Building2 },
+  // blood_bank: { label: 'Blood Bank', icon: Building2 },
   volunteer: { label: 'Volunteer', icon: Truck },
   transport: { label: 'Transport', icon: Truck },
   admin: { label: 'Admin', icon: Shield }
@@ -49,7 +49,7 @@ export function Navbar() {
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
-    { path: '/blood-banks', label: 'Blood Banks', icon: MapPin },
+    // { path: '/blood-banks', label: 'Blood Banks', icon: MapPin },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -160,12 +160,12 @@ export function Navbar() {
                       Hospital Portal
                     </DropdownMenuItem>
                   )}
-                  {hasRoleFast('blood_bank') && (
+                  {/* {hasRoleFast('blood_bank') && (
                     <DropdownMenuItem onClick={() => navigate('/dashboard/blood-bank')}>
                       <Building2 className="w-4 h-4 mr-2" />
                       Blood Bank
                     </DropdownMenuItem>
-                  )}
+                  )} */}
                   {hasRoleFast('admin') && (
                     <DropdownMenuItem onClick={() => navigate('/dashboard/admin')}>
                       <Shield className="w-4 h-4 mr-2" />
