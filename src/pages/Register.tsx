@@ -27,7 +27,10 @@ import {
   Eye,
   EyeOff,
   Hospital,
-  Building2
+  Building2,
+  Upload,
+  FileText,
+  AlertCircle
 } from 'lucide-react';
 
 const bloodGroups: BloodGroup[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -63,10 +66,12 @@ export default function Register() {
     emergencyContact: '',
     hospitalName: '',
     licenseNumber: '',
+    bloodGroupReportFile: null as File | null,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [uploadedReportName, setUploadedReportName] = useState<string>('');
 
   // Check for role in URL params and auto-advance to details
   useEffect(() => {
@@ -100,6 +105,35 @@ export default function Register() {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Invalid File Format",
+          description: "Please upload a PDF, JPG, or PNG file.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: "Please upload a file smaller than 5MB.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setFormData(prev => ({ ...prev, bloodGroupReportFile: file }));
+      setUploadedReportName(file.name);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -393,6 +427,77 @@ export default function Register() {
                             ))}
                           </div>
                         </div>
+                      )}
+
+                      {/* Blood Group Verification - Donor Only */}
+                      {selectedRole === 'donor' && (
+                        <motion.div
+                          className="space-y-4 p-5 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl border border-primary/20"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                        >
+                          {/* Header */}
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-foreground">Blood Group Verification</h3>
+                              <p className="text-sm text-muted-foreground mt-1">Upload Blood Group Report</p>
+                            </div>
+                          </div>
+
+                          {/* File Upload Area */}
+                          <div className="space-y-3">
+                            <label className="block">
+                              <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={handleFileUpload}
+                                className="hidden"
+                                id="bloodGroupReport"
+                              />
+                              <label
+                                htmlFor="bloodGroupReport"
+                                className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer hover:bg-primary/5 transition-colors"
+                              >
+                                <Upload className="w-6 h-6 text-primary mb-2" />
+                                <span className="text-sm font-medium text-foreground">
+                                  {uploadedReportName ? uploadedReportName : 'Click to upload Blood Group Report'}
+                                </span>
+                                <span className="text-xs text-muted-foreground mt-1">
+                                  PDF, JPG, or PNG (Max 5MB)
+                                </span>
+                              </label>
+                            </label>
+
+                            {uploadedReportName && (
+                              <motion.div
+                                className="flex items-center gap-2 p-3 bg-[hsl(var(--status-stable)/0.1)] rounded-lg border border-[hsl(var(--status-stable)/0.3)]"
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                              >
+                                <CheckCircle className="w-5 h-5 text-[hsl(var(--status-stable))]" />
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">File uploaded successfully</p>
+                                  <p className="text-xs text-muted-foreground">{uploadedReportName}</p>
+                                </div>
+                              </motion.div>
+                            )}
+                          </div>
+
+                          {/* Accepted Formats */}
+                          <div className="bg-white/50 dark:bg-white/5 p-3 rounded-lg">
+                            <p className="text-sm font-medium text-foreground mb-2">Accepted formats</p>
+                            <ul className="text-xs text-muted-foreground space-y-1">
+                              <li>• PDF, JPG, PNG</li>
+                              <li>• Issued by a hospital, lab, or blood bank</li>
+                            </ul>
+                          </div>
+
+                         
+                        </motion.div>
                       )}
 
                       {/* Address */}

@@ -1,0 +1,442 @@
+/* Judge-Impressing CSS - Medical Emergency System */
+
+/* ========================================
+   1️⃣ GLOBAL THEME (Clean + Medical + Emergency)
+   ======================================== */
+
+:root {
+  /* Primary Emergency Colors */
+  --primary-red: #e11d48;
+  --primary-red-dark: #991b1b;
+  --primary-red-soft: #fee2e2;
+
+  /* Medical Grade Colors */
+  --medical-blue: #2563eb;
+  --medical-blue-soft: #eff6ff;
+
+  /* Status Colors */
+  --success-green: #16a34a;
+  --warning-orange: #f97316;
+
+  /* Background & Surface */
+  --bg-main: #f8fafc;
+  --card-bg: #ffffff;
+
+  /* Typography */
+  --text-dark: #0f172a;
+  --text-muted: #64748b;
+
+  /* Spacing & Radius */
+  --radius-lg: 18px;
+  --radius-md: 12px;
+
+  /* Shadows */
+  --shadow-soft: 0 10px 25px rgba(0,0,0,0.08);
+  --shadow-strong: 0 20px 40px rgba(0,0,0,0.12);
+}
+
+body {
+  background: linear-gradient(180deg, #fff1f2, #f8fafc);
+  color: var(--text-dark);
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+/* ========================================
+   2️⃣ HERO SECTION (Make judges stop & look)
+   ======================================== */
+
+.hero-section {
+  padding: 90px 20px 120px;
+  text-align: center;
+  background: radial-gradient(circle at top, #ffe4e6, #f8fafc);
+}
+
+.hero-section h1 {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.hero-section h1 span {
+  color: var(--primary-red);
+  background: linear-gradient(135deg, #e11d48, #991b1b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-section p {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  margin-top: 16px;
+  line-height: 1.6;
+}
+
+/* ========================================
+   3️⃣ EMERGENCY BUTTON (MOST IMPORTANT 🔴)
+   ======================================== */
+
+.emergency-btn,
+button.emergency,
+#emergency,
+.emergency-button {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ef4444, #b91c1c);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  border: none;
+  box-shadow: 0 0 0 rgba(239,68,68,0.7);
+  animation: emergencyPulse 2s infinite;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.emergency-btn:hover,
+button.emergency:hover,
+#emergency:hover,
+.emergency-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 15px 40px rgba(239,68,68,0.4);
+}
+
+.emergency-btn:active,
+button.emergency:active,
+#emergency:active,
+.emergency-button:active {
+  transform: scale(0.95);
+}
+
+@keyframes emergencyPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239,68,68,0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 35px rgba(239,68,68,0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239,68,68,0);
+  }
+}
+
+/* ========================================
+   4️⃣ STATS / INFO CARDS (24/7, 500+, 10K+)
+   ======================================== */
+
+.stat-card,
+.info-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  box-shadow: var(--shadow-soft);
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.stat-card:hover,
+.info-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-strong);
+  border-color: rgba(225,29,72,0.1);
+}
+
+.stat-card h3,
+.info-card h3 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--primary-red);
+  margin-bottom: 8px;
+}
+
+.stat-card p,
+.info-card p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.stat-card .icon,
+.info-card .icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  color: var(--primary-red);
+}
+
+/* ========================================
+   5️⃣ NAVBAR (Clean + Professional)
+   ======================================== */
+
+.navbar {
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  padding: 12px 24px;
+}
+
+.navbar a {
+  font-weight: 600;
+  color: var(--text-dark);
+  transition: color 0.3s ease;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+}
+
+.navbar a.active,
+.navbar a:hover {
+  color: var(--primary-red);
+  background: rgba(225,29,72,0.1);
+}
+
+.navbar button {
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+/* ========================================
+   6️⃣ DASHBOARD CARDS (Production Feel)
+   ======================================== */
+
+.dashboard-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-soft);
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-strong);
+  border-color: rgba(225,29,72,0.1);
+}
+
+.dashboard-card h2 {
+  color: var(--text-dark);
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.dashboard-card p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* ========================================
+   7️⃣ FLOATING CHATBOT (AI FEEL 🤖)
+   ======================================== */
+
+.chatbot-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  border-radius: 50%;
+  box-shadow: 0 12px 30px rgba(37,99,235,0.5);
+  color: #fff;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  z-index: 999;
+}
+
+.chatbot-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 16px 40px rgba(37,99,235,0.6);
+}
+
+.chatbot-btn:active {
+  transform: scale(0.95);
+}
+
+/* ========================================
+   8️⃣ ADDITIONAL UTILITY CLASSES
+   ======================================== */
+
+/* Status Badge Styles */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-badge.critical {
+  background: rgba(225,29,72,0.1);
+  color: var(--primary-red);
+}
+
+.status-badge.warning {
+  background: rgba(249,115,22,0.1);
+  color: var(--warning-orange);
+}
+
+.status-badge.success {
+  background: rgba(22,163,74,0.1);
+  color: var(--success-green);
+}
+
+/* Button Styles */
+.btn-primary {
+  background: var(--primary-red);
+  color: white;
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: var(--primary-red-dark);
+  box-shadow: 0 8px 16px rgba(225,29,72,0.3);
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background: var(--medical-blue);
+  color: white;
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 8px 16px rgba(37,99,235,0.3);
+  transform: translateY(-2px);
+}
+
+/* Alert/Message Styles */
+.alert-critical {
+  background: rgba(225,29,72,0.1);
+  border-left: 4px solid var(--primary-red);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  color: var(--primary-red);
+  font-weight: 500;
+}
+
+.alert-warning {
+  background: rgba(249,115,22,0.1);
+  border-left: 4px solid var(--warning-orange);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  color: var(--warning-orange);
+  font-weight: 500;
+}
+
+.alert-success {
+  background: rgba(22,163,74,0.1);
+  border-left: 4px solid var(--success-green);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  color: var(--success-green);
+  font-weight: 500;
+}
+
+/* Text Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.6s ease-out;
+}
+
+/* Responsive Typography */
+@media (max-width: 768px) {
+  .hero-section h1 {
+    font-size: 2.2rem;
+  }
+
+  .hero-section {
+    padding: 60px 16px 80px;
+  }
+
+  .stat-card h3,
+  .info-card h3 {
+    font-size: 1.5rem;
+  }
+
+  .emergency-btn,
+  button.emergency,
+  #emergency,
+  .emergency-button {
+    width: 120px;
+    height: 120px;
+    font-size: 14px;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-main: #1a1f2e;
+    --card-bg: #252d3d;
+    --text-dark: #f0f4f8;
+    --text-muted: #a0aec0;
+  }
+
+  body {
+    background: linear-gradient(180deg, #1a1f2e, #0f1419);
+  }
+
+  .navbar {
+    background: rgba(37,45,61,0.8);
+    border-bottom-color: rgba(255,255,255,0.1);
+  }
+
+  .navbar a:hover {
+    background: rgba(225,29,72,0.2);
+  }
+
+  .dashboard-card,
+  .stat-card,
+  .info-card {
+    border-color: rgba(255,255,255,0.1);
+  }
+}

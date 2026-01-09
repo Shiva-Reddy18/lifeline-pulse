@@ -18,7 +18,7 @@ import EmergencyBloodRequest from "./EmergencyBloodRequest";
 import PatientInfoCard from "./PatientInfoCard";
 import PatientNotifications from "./PatientNotifications";
 import RequestHistory from "./RequestHistory";
-import HealthReportAnalyzer from "./HealthReportAnalyzer";
+// import HealthReportAnalyzer from "./HealthReportAnalyzer";
 import NetworkMap from "./NetworkMap";
 
 type PatientProfile = {
