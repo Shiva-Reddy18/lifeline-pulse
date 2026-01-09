@@ -159,7 +159,8 @@ serve(async (req) => {
 
     // Create emergency record
     const { data: emergency, error: insertError } = await supabase
-      .from("emergencies")
+      .from("emergency_requests")
+
       .insert({
         patient_id: userId,
         blood_group: sanitized.bloodGroup,

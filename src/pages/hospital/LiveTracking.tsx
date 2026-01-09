@@ -70,7 +70,8 @@ export default function LiveTracking() {
       if (!hospitalId) return [];
       try {
         const { data, error } = await supabase
-          .from("emergencies")
+       .from("emergency_requests")
+
           .select("*")
           .eq("hospital_id", hospitalId)
           .in("status", ["created", "accepted", "in_progress"])

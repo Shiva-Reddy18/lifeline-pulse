@@ -36,7 +36,8 @@ serve(async (req) => {
 
     // Get emergency with OTP
     const { data: emergency, error: fetchError } = await supabase
-      .from("emergencies")
+     .from("emergency_requests")
+
       .select("id, verification_otp, status, patient_id")
       .eq("id", emergencyId)
       .single();
@@ -81,7 +82,8 @@ serve(async (req) => {
     }
 
     const { error: updateError } = await supabase
-      .from("emergencies")
+    .from("emergency_requests")
+
       .update(updateData)
       .eq("id", emergencyId);
 
