@@ -33,7 +33,8 @@ serve(async (req) => {
 
     // Get emergency details
     const { data: emergency, error: fetchError } = await supabase
-      .from("emergencies")
+     .from("emergency_requests")
+
       .select("id, blood_group, units_required, hospital_id, status, verification_otp")
       .eq("id", emergencyId)
       .single();
@@ -51,7 +52,8 @@ serve(async (req) => {
       otp = Math.floor(100000 + Math.random() * 900000).toString();
       
       await supabase
-        .from("emergencies")
+       .from("emergency_requests")
+
         .update({ verification_otp: otp })
         .eq("id", emergencyId);
     }

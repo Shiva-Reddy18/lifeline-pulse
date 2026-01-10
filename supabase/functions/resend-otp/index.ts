@@ -30,7 +30,8 @@ serve(async (req) => {
 
     // Update emergency with new OTP
     const { data: emergency, error: updateError } = await supabase
-      .from("emergencies")
+     .from("emergency_requests")
+
       .update({ verification_otp: newOtp })
       .eq("id", emergencyId)
       .select("patient_phone, patient_id")
