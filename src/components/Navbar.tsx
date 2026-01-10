@@ -1,10 +1,11 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { 
-  Heart, 
-  Home, 
-  User, 
-  MapPin, 
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  Heart,
+  Home,
+  User,
+  MapPin,
   Hospital as HospitalIcon,
   Menu,
   X,
@@ -15,12 +16,11 @@ import {
   LayoutDashboard,
   UserPlus,
   Building2,
-  Truck
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+  Truck,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,52 +31,50 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const roleLabels: Record<string, { label: string; icon: React.ElementType }> = {
-  patient: { label: 'Patient', icon: User },
-  attender: { label: 'Attender', icon: User },
-  donor: { label: 'Donor', icon: Droplet },
-  hospital_staff: { label: 'Hospital', icon: HospitalIcon },
-  blood_bank: { label: 'Blood Bank', icon: Building2 },
-  volunteer: { label: 'Volunteer', icon: Truck },
-  transport: { label: 'Transport', icon: Truck },
-  admin: { label: 'Admin', icon: Shield }
+  patient: { label: "Patient", icon: User },
+  attender: { label: "Attender", icon: User },
+  donor: { label: "Donor", icon: Droplet },
+  hospital_staff: { label: "Hospital", icon: HospitalIcon },
+  volunteer: { label: "Volunteer", icon: Truck },
+  transport: { label: "Transport", icon: Truck },
+  admin: { label: "Admin", icon: Shield },
 };
 
 export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, signOut, hasRole, primaryRole, getDashboardPath, loading } = useAuth();
+  const { user, signOut, hasRole, primaryRole, getDashboardPath, loading } =
+    useAuth();
 
-  const navItems = [
-    { path: '/', label: 'Home', icon: Home },
-    { path: '/blood-banks', label: 'Blood Banks', icon: MapPin },
-  ];
+  const navItems = [{ path: "/", label: "Home", icon: Home }];
 
   const isActive = (path: string) => location.pathname === path;
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate("/");
   };
 
-  // effectiveRole: prefer user.role if AuthContext attached it, else use primaryRole
-  const effectiveRole = (user && ((user as any).role ?? primaryRole)) ?? null;
-  // normalize to string or null
-  const normalizedRole = typeof effectiveRole === 'string' ? effectiveRole : null;
+  const effectiveRole =
+    (user && ((user as any).role ?? primaryRole)) ?? null;
+  const normalizedRole =
+    typeof effectiveRole === "string" ? effectiveRole : null;
 
-  const RoleIcon = normalizedRole ? (roleLabels[normalizedRole]?.icon || User) : User;
-  const roleLabel = normalizedRole ? (roleLabels[normalizedRole]?.label || 'User') : 'User';
+  const RoleIcon = normalizedRole
+    ? roleLabels[normalizedRole]?.icon || User
+    : User;
+  const roleLabel = normalizedRole
+    ? roleLabels[normalizedRole]?.label || "User"
+    : "User";
 
-  // helper to handle fast UI even if roles[] hasn't arrived yet
   const hasRoleFast = (roleName: string) => {
-    // check normalizedRole first (fast), else fallback to hasRole()
     if (normalizedRole) return normalizedRole === roleName;
     return hasRole(roleName as any);
   };
 
-  // decide dashboard navigation — don't navigate using getDashboardPath() if primaryRole not yet known
   const handleGoToDashboard = () => {
-    if (loading) return; // do nothing until roles are loaded
+    if (loading) return;
     const path = getDashboardPath();
     navigate(path);
   };
@@ -90,7 +88,6 @@ export function Navbar() {
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
             <motion.div
               className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center"
@@ -100,14 +97,17 @@ export function Navbar() {
               <Heart className="w-6 h-6 text-primary-foreground fill-current" />
             </motion.div>
             <div className="flex flex-col">
-              <span className="font-display font-bold text-lg leading-tight">LIFELINE-X</span>
-              <span className="text-[10px] text-muted-foreground leading-tight">Emergency Blood Response</span>
+              <span className="font-display font-bold text-lg leading-tight">
+                LIFELINE-X
+              </span>
+              <span className="text-[10px] text-muted-foreground leading-tight">
+                Emergency Blood Response
+              </span>
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            {navItems.map(item => {
+            {navItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link key={item.path} to={item.path}>
@@ -124,7 +124,6 @@ export function Navbar() {
             })}
           </div>
 
-          {/* Auth & Emergency CTA */}
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <DropdownMenu>
@@ -148,26 +147,20 @@ export function Navbar() {
                     My Dashboard
                   </DropdownMenuItem>
 
-                  {hasRoleFast('donor') && (
-                    <DropdownMenuItem onClick={() => navigate('/dashboard/donor')}>
+                  {hasRoleFast("donor") && (
+                    <DropdownMenuItem onClick={() => navigate("/dashboard/donor")}>
                       <Droplet className="w-4 h-4 mr-2" />
                       Donor Profile
                     </DropdownMenuItem>
                   )}
-                  {hasRoleFast('hospital_staff') && (
-                    <DropdownMenuItem onClick={() => navigate('/hospital')}>
+                  {hasRoleFast("hospital_staff") && (
+                    <DropdownMenuItem onClick={() => navigate("/hospital")}>
                       <HospitalIcon className="w-4 h-4 mr-2" />
                       Hospital Portal
                     </DropdownMenuItem>
                   )}
-                  {hasRoleFast('blood_bank') && (
-                    <DropdownMenuItem onClick={() => navigate('/dashboard/blood-bank')}>
-                      <Building2 className="w-4 h-4 mr-2" />
-                      Blood Bank
-                    </DropdownMenuItem>
-                  )}
-                  {hasRoleFast('admin') && (
-                    <DropdownMenuItem onClick={() => navigate('/dashboard/admin')}>
+                  {hasRoleFast("admin") && (
+                    <DropdownMenuItem onClick={() => navigate("/dashboard/admin")}>
                       <Shield className="w-4 h-4 mr-2" />
                       Admin Panel
                     </DropdownMenuItem>
@@ -203,7 +196,6 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
           <Button
             variant="ghost"
             size="icon"
@@ -215,16 +207,15 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {mobileMenuOpen && (
         <motion.div
           className="md:hidden border-t bg-background"
           initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
+          animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
         >
           <div className="container mx-auto px-4 py-4 space-y-2">
-            {navItems.map(item => {
+            {navItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
@@ -242,13 +233,15 @@ export function Navbar() {
                 </Link>
               );
             })}
-            
+
             {user ? (
               <>
                 <div className="flex items-center gap-2 px-3 py-2">
                   <RoleIcon className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium">{roleLabel}</span>
-                  <Badge variant="secondary" className="text-xs">{roleLabel}</Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {roleLabel}
+                  </Badge>
                 </div>
                 <Link to={getDashboardPath()} onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start gap-3" disabled={loading}>
@@ -256,10 +249,13 @@ export function Navbar() {
                     My Dashboard
                   </Button>
                 </Link>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   className="w-full justify-start gap-3"
-                  onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
+                  onClick={() => {
+                    handleSignOut();
+                    setMobileMenuOpen(false);
+                  }}
                 >
                   <LogOut className="w-5 h-5" />
                   Sign Out
@@ -281,7 +277,7 @@ export function Navbar() {
                 </Link>
               </>
             )}
-            
+
             <div className="pt-2 border-t">
               <Link to="/" onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="emergency" className="w-full">

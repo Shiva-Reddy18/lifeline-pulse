@@ -170,26 +170,44 @@ export default function EmergencyBloodRequest() {
     }
   }, [pendingEmergency, latitude, longitude, profile]);
 
-  return (
-    <Card className="border-none p-8 flex flex-col items-center justify-center min-h-[420px]">
-      <h2 className="text-lg font-medium text-gray-700 mb-6">
-        Emergency Blood Request
+return (
+  <Card className="border border-red-200 bg-red-50 p-10 flex flex-col items-center justify-center min-h-[480px] shadow-sm relative overflow-hidden">
+    
+    {/* Header */}
+    <div className="text-center mb-6">
+      <h2 className="text-2xl font-bold text-red-700">
+        One-Tap Emergency
       </h2>
+      <p className="text-sm text-red-500 mt-1">
+        Instantly alert nearby hospitals for urgent blood
+      </p>
+    </div>
 
+    {/* Button container (prevents overlap) */}
+    <div className="relative my-10 flex items-center justify-center min-h-[220px]">
       <EmergencyButton
         onTrigger={handleEmergencyClick}
         isLoading={isSending || locationLoading || profileLoading}
       />
+    </div>
 
-      <p className="mt-10 text-sm text-muted-foreground text-center max-w-xs">
-        Tap for urgent blood requests. Help is nearby.
+    {/* Info text */}
+    <div className="text-center max-w-md">
+      <p className="text-sm text-gray-700">
+        Your saved medical profile will be used for this emergency.
       </p>
+      <p className="text-xs text-muted-foreground mt-1">
+        Hospitals verify and coordinate before contacting donors.
+      </p>
+    </div>
 
-      {locationError && (
-        <p className="mt-4 text-xs text-red-500">
-          Location error: {locationError}
-        </p>
-      )}
-    </Card>
-  );
+    {/* Location error */}
+    {locationError && (
+      <div className="mt-6 bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm">
+        Location access is required to send emergency.
+      </div>
+    )}
+  </Card>
+);
+
 }

@@ -229,16 +229,29 @@ const upsertPayload = {
     <div className="p-6 space-y-6">
       <PatientHeader activeView={activeView} setActiveView={setActiveView} />
 
-      {activeView === "dashboard" && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <EmergencyBloodRequest />
-            <PatientInfoCard />
-          </div>
-          <PatientNotifications />
-          <RequestHistory />
-        </>
-      )}
+     {activeView === "dashboard" && (
+  <>
+    {/* Emergency button - full width */}
+    <div className="w-full">
+      <EmergencyBloodRequest />
+    </div>
+
+    {/* Info cards below */}
+    <div className="mt-6">
+  <PatientNotifications />
+</div>
+
+<div className="mt-6">
+  <PatientInfoCard />
+</div>
+
+
+    <div className="mt-6">
+      <RequestHistory />
+    </div>
+  </>
+)}
+
 
       {activeView === "profile" && profile && (
         <div className="max-w-xl mx-auto space-y-6">
