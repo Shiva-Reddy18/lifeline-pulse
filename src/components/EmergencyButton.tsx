@@ -82,8 +82,8 @@ export function EmergencyButton({ onTrigger, isLoading }: EmergencyButtonProps) 
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <AlertTriangle className="w-4 h-4" />
-        <span className="text-sm">For medical emergencies only</span>
+        {/* <AlertTriangle className="w-4 h-4" />
+        <span className="text-sm">For medical emergencies <br /> <br /></span> */}
       </motion.div>
     </div>
   );

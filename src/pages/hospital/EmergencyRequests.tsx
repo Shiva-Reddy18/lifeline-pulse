@@ -1,5 +1,5 @@
 // src/pages/hospital/EmergencyRequests.tsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,40 +17,16 @@ import {
   MapPin,
   Check,
   X,
-  AlertTriangle,
-  Droplet,
   RefreshCw,
   Search,
-  Filter,
-  ArrowLeftRight,
   Loader2,
   Trash2,
 } from "lucide-react";
 import type { EmergencyRequest as EmergencyRequestType } from "@/types/emergency";
 
-/**
- * EmergencyRequests.tsx
- *
- * Hospital-only enforcement notes:
- * - The UI shows incoming emergencies, but all create/accept actions require a hospital identity (hospitalId).
- * - Hospital identity is taken from `profile.id` (or `profile.hospital_id`) provided by AuthContext.
- * - If hospitalId is absent, actions that mutate data are disabled and a clear message appears.
- *
- * This file intentionally:
- * - Accepts an optional hospitalId prop (so parent can pass it). If absent, we derive from profile.
- * - Uses robust queries with polling for demo stability.
- * - Performs optimistic updates and invalidation via react-query.
- * - Has strong fallbacks so the demo won't crash if supabase isn't configured.
- */
-
-/* -------------------------
-   Types & constants
-   ------------------------- */
-
 type UUID = string;
 
 type EmergencyLocal = EmergencyRequestType & {
-  // ensure we have consistent fields for safe UI usage
   id: string;
   blood_group: string;
   units_required: number;
@@ -60,7 +36,6 @@ type EmergencyLocal = EmergencyRequestType & {
   patient_phone?: string | null;
   address?: string | null;
   created_at?: string | null;
-  // potential location fields used by older / different schemas:
   latitude?: number | null;
   longitude?: number | null;
   location_lat?: number | null;
@@ -72,10 +47,6 @@ type EmergencyLocal = EmergencyRequestType & {
 
 const POLL_INTERVAL_MS = 6000; // 6s poll for demo
 
-/* -------------------------
-   Helpers
-   ------------------------- */
-
 const safeFmt = (d?: string | null) => (d ? formatDistanceToNowStrict(new Date(d), { addSuffix: true }) : "-");
 
 const extractLatLng = (r: EmergencyLocal) => {
@@ -83,10 +54,6 @@ const extractLatLng = (r: EmergencyLocal) => {
   const lng = r.longitude ?? r.location_lng ?? (r as any).lng ?? 0;
   return { lat: Number(lat) || 0, lng: Number(lng) || 0 };
 };
-
-/* -------------------------
-   Mock fallback data (keeps UI working if Supabase is unreachable)
-   ------------------------- */
 
 const FALLBACK_EMERGENCIES: EmergencyLocal[] = [
   {
@@ -106,21 +73,13 @@ const FALLBACK_EMERGENCIES: EmergencyLocal[] = [
   },
 ];
 
-/* -------------------------
-   Main component
-   ------------------------- */
-
 export default function EmergencyRequests({ hospitalId: propHospitalId }: { hospitalId?: UUID }) {
   const { profile, user } = useAuth() as any;
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // prefer explicit prop hospitalId (provided by parent Dashboard); otherwise derive from profile
+  // explicit hospital id from parent or profile (may be undefined)
   const derivedHospitalId: UUID | undefined = propHospitalId ?? (profile?.id ?? (profile as any)?.hospital_id);
-
-  // role hint — optional, used to disable actions for non-hospitals
-  const userRole = (profile as any)?.role ?? (profile as any)?.account_type ?? null;
-  const isHospitalAccount = userRole ? String(userRole).toLowerCase() === "hospital" : !!derivedHospitalId;
 
   // local UI state
   const [selected, setSelected] = useState<EmergencyLocal | null>(null);
@@ -131,21 +90,25 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
   const [etaMinutes, setEtaMinutes] = useState<number>(15);
   const [hospitalNote, setHospitalNote] = useState<string>("");
 
-  /* -------------------------
-     Fetch emergencies (scoped to hospital feed if you want)
-     ------------------------- */
+  // UI-only verified map (front-end only; no DB writes). Demo-only.
+  const [uiVerifiedMap, setUiVerifiedMap] = useState<Record<string, boolean>>({});
+
+  /* ===========================
+     Fetch emergencies (loose query)
+     - We intentionally fetch recent rows without filtering by status
+       so rows with newer/unknown status strings are still visible.
+     =========================== */
   const fetchEmergencies = useCallback(async (): Promise<EmergencyLocal[]> => {
     try {
       if (!supabase) throw new Error("Supabase client not available");
-      // The query intentionally fetches 'created' emergencies that are not handled yet.
-      // In your design only hospitals create emergencies; they appear here for donors/volunteers/hospitals
+
+      // Loosely fetch recent rows (no `.in("status", ...)`), then we use UI logic to display.
       const { data, error } = await supabase
         .from("emergency_requests")
         .select("*")
-        // we fetch open items; adjust status keys to your schema
-        .in("status", ["CREATED", "created", "open", "OPEN"])
         .order("created_at", { ascending: false })
         .limit(200);
+
       if (error) throw error;
       return (data ?? []) as EmergencyLocal[];
     } catch (e) {
@@ -169,36 +132,40 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
 
   const filteredEmergencies = useMemo(() => {
     const q = queryText.trim().toLowerCase();
+
     const list = emergenciesRaw.filter((r) => {
+      // effective status (UI override)
+      const effectiveStatus = uiVerifiedMap[r.id] ? "verified" : String(r.status ?? "").toLowerCase();
+
+      // severity filter
       if (severityFilter !== "ALL" && String(r.severity).toUpperCase() !== severityFilter) return false;
-      if (onlyRecent) {
-        // last 48 hours
-        if (r.created_at) {
-          const ageMs = Date.now() - new Date(r.created_at).getTime();
-          if (ageMs > 48 * 60 * 60 * 1000) return false;
-        }
+
+      // onlyRecent filter (48 hours from created_at)
+      if (onlyRecent && r.created_at) {
+        const ageMs = Date.now() - new Date(r.created_at).getTime();
+        if (ageMs > 48 * 60 * 60 * 1000) return false;
       }
+
+      // search filter across name/address/blood group
       if (!q) return true;
-      // search across patient name, address, blood group
       return (
         String(r.patient_name ?? "").toLowerCase().includes(q) ||
         String(r.address ?? "").toLowerCase().includes(q) ||
         String(r.blood_group ?? "").toLowerCase().includes(q)
       );
     });
+
     return list;
-  }, [emergenciesRaw, queryText, severityFilter, onlyRecent]);
+  }, [emergenciesRaw, queryText, severityFilter, onlyRecent, uiVerifiedMap]);
 
   /* -------------------------
-     Accept mutation
-     - Hospital must be present to accept
-     - Accept sets status and attaches hospital info (hospital_id, hospital_name)
-     - We include ETA and hospital_note fields if provided
+     Accept mutation (hospital accepts / dispatches)
+     - kept as server-op; we allow calling it even if derivedHospitalId is missing.
      ------------------------- */
   const acceptMutation = useMutation(
     async (payload: {
       id: string;
-      hospital_id?: UUID;
+      hospital_id?: UUID | null;
       hospital_name?: string | null;
       eta_minutes?: number | null;
       note?: string | null;
@@ -212,14 +179,12 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
       };
       if (typeof payload.eta_minutes === "number") updates.estimated_time = payload.eta_minutes;
       if (payload.note) updates.hospital_note = payload.note;
-      const { data, error } = await supabase.from("emergency_requests")
-.update(updates).eq("id", payload.id).select().single();
+      const { data, error } = await supabase.from("emergency_requests").update(updates).eq("id", payload.id).select().single();
       if (error) throw error;
       return data;
     },
     {
       onMutate: async (vars) => {
-        // optimistic update: mark the emergency status locally
         await queryClient.cancelQueries({ queryKey: ["emergencies", "open"] });
         const previous = queryClient.getQueryData<EmergencyLocal[]>(["emergencies", "open"]);
         queryClient.setQueryData<EmergencyLocal[] | undefined>(["emergencies", "open"], (old) =>
@@ -241,7 +206,6 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
           title: "Accepted",
           description: `Emergency ${data?.id} accepted. Notifying donors & volunteers.`,
         });
-        // invalidate so canonical server result refreshes
         queryClient.invalidateQueries({ queryKey: ["emergencies", "open"] });
         queryClient.invalidateQueries({ queryKey: ["emergency", data?.id] });
       },
@@ -249,7 +213,7 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
   );
 
   /* -------------------------
-     Cancel / delete mutation (hospital-only admin action)
+     Cancel / delete mutation
      ------------------------- */
   const cancelMutation = useMutation(
     async (id: string) => {
@@ -273,8 +237,6 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
      Helper UI functions
      ------------------------- */
 
-  const timeAgo = useCallback((d?: string | null) => (d ? formatDistanceToNowStrict(new Date(d), { addSuffix: true }) : "-"), []);
-
   const severityBadge = (s?: string | null) => {
     const sev = String(s ?? "").toUpperCase();
     if (sev === "CRITICAL") return <Badge className="bg-red-600 text-white">CRITICAL</Badge>;
@@ -288,22 +250,19 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
 
   const handleOpenAccept = (r: EmergencyLocal) => {
     setSelected(r);
-    setEtaMinutes(Math.max(5, Math.round(r.estimatedTime ?? r.estimated_time ?? 15)));
+    setEtaMinutes(Math.max(5, Math.round((r as any).estimatedTime ?? (r as any).estimated_time ?? 15)));
     setHospitalNote("");
   };
 
   const handleConfirmAccept = async () => {
     if (!selected) return;
-    if (!derivedHospitalId) {
-      toast?.({ title: "Cannot accept", description: "Hospital identity missing. Register the hospital to accept requests." });
-      return;
-    }
     setAccepting(true);
     try {
+      // Allow accepting even without a hospital identity (we pass null and a fallback name)
       await acceptMutation.mutateAsync({
         id: selected.id,
-        hospital_id: derivedHospitalId,
-        hospital_name: (profile as any)?.hospital_name ?? (profile as any)?.full_name ?? null,
+        hospital_id: derivedHospitalId ?? null,
+        hospital_name: (profile as any)?.hospital_name ?? (profile as any)?.full_name ?? "Hospital (demo)",
         eta_minutes: etaMinutes,
         note: hospitalNote || null,
       });
@@ -316,7 +275,6 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
   };
 
   const handleOpenRoute = async (r: EmergencyLocal) => {
-    // open Google Maps directions from hospital to patient
     try {
       const patientLat = r.latitude ?? r.location_lat ?? (r as any).lat;
       const patientLng = r.longitude ?? r.location_lng ?? (r as any).lng;
@@ -325,7 +283,7 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
         return;
       }
 
-      // attempt to fetch hospital location
+      // If hospital location not available, just open patient location
       if (!derivedHospitalId) {
         const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${patientLat},${patientLng}`)}`;
         window.open(url, "_blank");
@@ -365,8 +323,7 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this emergency permanently? This action cannot be undone.")) return;
     try {
-      await supabase.from("emergency_requests")
-.delete().eq("id", id);
+      await supabase.from("emergency_requests").delete().eq("id", id);
       toast?.({ title: "Deleted", description: "Emergency removed." });
       queryClient.invalidateQueries({ queryKey: ["emergencies", "open"] });
     } catch (e) {
@@ -447,7 +404,7 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
               <Card>
                 <CardContent className="p-6 text-center">
                   <div className="text-lg font-semibold mb-2">No active emergencies</div>
-                  <div className="text-sm text-slate-500">When a verified hospital raises an emergency it will appear here.</div>
+                  <div className="text-sm text-slate-500">When hospitals or patients raise an emergency it will appear here.</div>
                 </CardContent>
               </Card>
             </div>
@@ -456,6 +413,11 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
               {filteredEmergencies.map((r) => {
                 const { lat, lng } = extractLatLng(r);
                 const isSelected = selected?.id === r.id;
+
+                // effective status: UI-verified override OR DB status (lowercased)
+                const effectiveStatus = uiVerifiedMap[r.id] ? "verified" : String(r.status ?? "").toLowerCase();
+                const statusLower = effectiveStatus;
+
                 return (
                   <motion.div key={r.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}>
                     <Card className={`overflow-hidden ${isSelected ? "ring-2 ring-blue-200" : ""}`}>
@@ -475,7 +437,8 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
                             <div className="mt-2 flex items-center gap-2">
                               <div>{severityBadge(r.severity)}</div>
                               <div className="text-xs text-slate-400">× {r.units_required ?? 1}</div>
-                              <div className="text-xs text-slate-400">Status: {String(r.status).toUpperCase()}</div>
+                              <div className="text-xs text-slate-400">Status: {String(statusLower).toUpperCase()}</div>
+                              {uiVerifiedMap[r.id] && <Badge className="bg-blue-100 text-blue-800">UI Verified</Badge>}
                             </div>
 
                             {lat && lng ? (
@@ -484,15 +447,33 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
                           </div>
 
                           <div className="flex flex-col items-end gap-2">
-                            <Button
-                              size="sm"
-                              className="flex items-center gap-2 h-8 text-xs bg-green-600 hover:bg-green-700"
-                              onClick={() => handleOpenAccept(r)}
-                              disabled={!isHospitalAccount}
-                              title={!isHospitalAccount ? "Only hospital accounts can accept" : "Accept this emergency"}
-                            >
-                              <Check className="w-3 h-3" /> Accept
-                            </Button>
+                            {/* Show Verify for non-verified requests (UI-only). No server-side check. */}
+                            {statusLower !== "verified" ? (
+                              <Button
+                                size="sm"
+                                className="flex items-center gap-2 h-8 text-xs bg-blue-600 hover:bg-blue-700"
+                                onClick={() => {
+                                  // PURE FRONTEND VERIFY (NO DB)
+                                  setUiVerifiedMap((prev) => ({ ...prev, [r.id]: true }));
+                                  toast({
+                                    title: "Verified",
+                                    description: "Emergency verified (frontend only)",
+                                  });
+                                }}
+                                title="Verify this emergency (frontend only)"
+                              >
+                                <Check className="w-3 h-3" /> Verify
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="flex items-center gap-2 h-8 text-xs bg-green-600 hover:bg-green-700"
+                                onClick={() => handleOpenAccept(r)}
+                                title="Accept this emergency"
+                              >
+                                <Check className="w-3 h-3" /> Accept
+                              </Button>
+                            )}
 
                             <Button
                               size="sm"
@@ -508,14 +489,11 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
                               <Phone className="w-3 h-3" /> Call
                             </Button>
 
-                            {/* Admin small actions */}
-                            {isHospitalAccount && (
-                              <div className="flex items-center gap-2 mt-2">
-                                <Button size="sm" variant="destructive" onClick={() => handleDelete(r.id)} title="Delete">
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              <Button size="sm" variant="destructive" onClick={() => handleDelete(r.id)} title="Delete">
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -625,7 +603,7 @@ export default function EmergencyRequests({ hospitalId: propHospitalId }: { hosp
 
               <DialogFooter>
                 <Button variant="ghost" onClick={() => setSelected(null)}><X className="w-4 h-4" /> Cancel</Button>
-                <Button className="bg-green-600 hover:bg-green-700" onClick={handleConfirmAccept} disabled={!isHospitalAccount || accepting}>
+                <Button className="bg-green-600 hover:bg-green-700" onClick={handleConfirmAccept} disabled={accepting}>
                   {accepting ? <>Accepting…</> : <><Check className="w-4 h-4" /> Accept & Notify</>}
                 </Button>
               </DialogFooter>

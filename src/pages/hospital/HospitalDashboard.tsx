@@ -35,33 +35,12 @@ import HistoryRecords from "./HistoryRecords";
 import Notifications from "./Notifications";
 import ProfileSettings from "./ProfileSettings";
 
-/**
- * Hospital Dashboard — orchestrator / command center
- *
- * Key responsibilities:
- * - Provide hospitalId (UUID) to child pages
- * - Enforce hospital-only authority in the UI (no create emergency outside hospital pages)
- * - Present clear, explainable overview to judges (KPIs, quick actions, audit)
- *
- * Note: This file purposely contains many purposeful UI elements and helpers so the module
- * looks mature and self-contained for the hackathon demo. It's still modular and readable.
- */
-
-/* -------------------------
-   Small helper types & fns
-   ------------------------- */
 type UUID = string | undefined;
 
 const fmtDate = (d?: string | null) => (d ? new Date(d).toLocaleString() : "—");
 
-const safeCall = async (fn?: (...args: any[]) => any, ...args: any[]) => {
-  try {
-    if (!fn) return;
-    return await fn(...args);
-  } catch (e) {
-    console.warn("safeCall failed", e);
-  }
-};
+// Demo flag: set true while developing so actions are allowed even without strict verified hospital
+const DEMO_ALLOW_ACTIONS = true;
 
 /* -------------------------
    Sidebar component
@@ -88,9 +67,7 @@ function Sidebar({
 
   return (
     <aside
-      className={`${
-        open ? "w-64" : "w-20"
-      } bg-slate-900 text-white transition-all duration-300 fixed h-screen left-0 top-0 z-40 overflow-y-auto`}
+      className={`${open ? "w-64" : "w-20"} bg-slate-900 text-white transition-all duration-300 fixed h-screen left-0 top-0 z-40 overflow-y-auto`}
     >
       <div className="p-6 flex items-center justify-between">
         <motion.div
@@ -128,7 +105,6 @@ function Sidebar({
       </nav>
 
       <div className="absolute bottom-6 left-0 right-0 px-3">
-        {/* Logout placeholder — actual handler supplied by parent */}
         <div className="h-12" />
       </div>
     </aside>
@@ -195,8 +171,8 @@ function Header({
    Quick Actions bar
    ------------------------- */
 function QuickActions({ hospitalId, onNavigate }: { hospitalId?: UUID; onNavigate: (p: string) => void }) {
-  // Only show create emergency if hospitalId exists — this enforces hospital-only creation in UI
-  const canCreateEmergency = Boolean(hospitalId);
+  // allow quick actions when DEMO_ALLOW_ACTIONS is true OR hospitalId exists
+  const canCreateEmergency = DEMO_ALLOW_ACTIONS || Boolean(hospitalId);
 
   return (
     <div className="bg-white p-4 rounded shadow-sm flex items-center gap-3">
@@ -215,8 +191,10 @@ function QuickActions({ hospitalId, onNavigate }: { hospitalId?: UUID; onNavigat
             <Plus className="w-4 h-4" /> Create Emergency
           </Button>
 
-          {!canCreateEmergency && (
-            <div className="text-xs text-slate-400 ml-2">Hospital not registered — register in profile to enable actions.</div>
+          {!hospitalId && DEMO_ALLOW_ACTIONS && (
+            <div className="text-xs text-slate-400 ml-2">
+              (Demo mode: hospital not registered — actions allowed for testing)
+            </div>
           )}
         </div>
       </div>
@@ -286,52 +264,58 @@ export default function HospitalDashboard() {
   const location = useLocation();
   const { user, profile, signOut, logout } = useAuth() as any;
 
-  // sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  /* ===========================
-     ACTIVE HOSPITAL RESOLUTION
-     - Try profile-based mapping first (if you wired it)
-     - Fallback to first verified hospital from DB (hackathon mode)
-     ============================ */
-  const hospitalQuery = useQuery(
-    ["active-hospital-dashboard"],
-    async () => {
-      const { data, error } = await supabase
-        .from("hospitals")
-        .select("id, name, address, city, contact_phone, email, location_lat, location_lng, is_verified")
-        .eq("is_verified", true)
-        .limit(1)
-        .single();
-      if (error) throw error;
-      return data as { id: string; name?: string; is_verified?: boolean } | null;
-    },
-    { staleTime: 60_000 }
-  );
-
-  // compute hospitalId from profile OR fallback to DB record
+  // prefer profile-derived hospital id (if present)
   const profileHospitalId =
     profile && ((profile as any).id ?? (profile as any).hospital_id) ? ((profile as any).id ?? (profile as any).hospital_id) : null;
 
+  // ACTIVE HOSPITAL RESOLUTION
+  const hospitalQuery = useQuery(
+    ["active-hospital-dashboard", profileHospitalId],
+    async () => {
+      // if profile gives hospital id, fetch that record exactly (preferred)
+      if (profileHospitalId) {
+        const { data, error } = await supabase
+          .from("hospitals")
+          .select("id, name, address, city, contact_phone, email, location_lat, location_lng, is_verified")
+          .eq("id", profileHospitalId)
+          .limit(1)
+          .single();
+        if (error) throw error;
+        return data as { id: string; name?: string; is_verified?: boolean } | null;
+      }
+
+      // FALLBACK: return *any* hospital row (do NOT require is_verified here)
+      // This avoids blocking UI if your hospital isn't flagged verified in DB during dev
+      const { data, error } = await supabase
+        .from("hospitals")
+        .select("id, name, address, city, contact_phone, email, location_lat, location_lng, is_verified")
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.warn("No hospital fallback found (db):", error?.message ?? error);
+        return null;
+      }
+      return data as { id: string; name?: string; is_verified?: boolean } | null;
+    },
+    { staleTime: 60_000, enabled: true }
+  );
+
+  // compute hospitalId from profile OR fallback to DB record
   const hospitalId: UUID = (profileHospitalId as UUID) ?? (hospitalQuery.data ? (hospitalQuery.data as any).id : undefined);
 
   // display name: prefer DB hospital name, else fallback to profile values
   const hospitalName = (hospitalQuery.data && (hospitalQuery.data as any).name) ?? (profile?.hospital_name ?? profile?.full_name ?? "Hospital");
 
-  // current page
   const currentPage = location.pathname.split("/hospital/").pop() || "overview";
 
-  // small local demo audit items; ideally this is fetched from server
   const [auditItems, setAuditItems] = useState<{ id: string; action: string; when?: string }[]>([]);
-
-  // recent activity placeholder
   const [recent, setRecent] = useState<{ id: string; title: string; when?: string; meta?: string }[]>([]);
-
-  // quick simulate loading state for a badge
   const [loadingSync, setLoadingSync] = useState(false);
 
   useEffect(() => {
-    // initial audit: show last login + registration info if available
     const base = [
       { id: "evt-login", action: "Dashboard opened", when: new Date().toISOString() },
       ...(profile?.hospital_name ? [{ id: "evt-profile", action: `Hospital: ${profile.hospital_name}`, when: new Date().toISOString() }] : []),
@@ -342,37 +326,26 @@ export default function HospitalDashboard() {
   }, [profile]);
 
   useEffect(() => {
-    // Basic route guard: if the user's profile explicitly indicates not-hospital, show a warning
-    // We don't forcibly redirect here; just warn. Some teammates might be admins using same view.
     if (profile && (profile as any).role && (profile as any).role !== "hospital") {
       console.warn("User does not appear to be a hospital account. Profile role:", (profile as any).role);
     }
   }, [profile]);
 
   const doLogout = useCallback(async () => {
-    // support both signOut() and logout() depending on your AuthContext naming
     const f = signOut ?? logout;
     try {
-      if (f) {
-        await f();
-      }
+      if (f) await f();
     } catch (e) {
       console.warn("Logout failed", e);
     }
     navigate("/");
   }, [signOut, logout, navigate]);
 
-  const handleNavigate = (path: string) => {
-    navigate(path);
-  };
-
+  const handleNavigate = (path: string) => navigate(path);
   const openNotifications = () => navigate("/hospital/notifications");
 
-  // Quick search handler (header)
   const handleQuickSearch = (q: string) => {
-    // For demo: search may navigate to donors or inventory
     if (!q) return;
-    // Simple heuristic
     if (q.match(/A|B|O|AB/gi)) {
       navigate("/hospital/blood");
     } else {
@@ -380,22 +353,18 @@ export default function HospitalDashboard() {
     }
   };
 
-  // Simulated sync action
   const handleSync = async () => {
     setLoadingSync(true);
-    // simulate network
     await new Promise((r) => setTimeout(r, 700));
     setAuditItems((p) => [{ id: `sync-${Date.now()}`, action: "Manual sync", when: new Date().toISOString() }, ...p].slice(0, 12));
     setLoadingSync(false);
   };
 
-  // render children wrapped with hospitalId prop if they accept it
   const renderContent = () => {
     switch (currentPage) {
       case "overview":
         return <Overview />;
       case "emergencies":
-        // pass hospitalId to emergency component if it supports scoping
         return <EmergencyRequests hospitalId={hospitalId} />;
       case "blood":
         return <BloodCoordination hospitalId={hospitalId} />;
@@ -416,30 +385,24 @@ export default function HospitalDashboard() {
 
       <div className={`${sidebarOpen ? "ml-64" : "ml-20"} flex-1 transition-all duration-300`}>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-          <Header hospitalName={hospitalName} verified={hospitalQuery.data ? (hospitalQuery.data as any).is_verified : (profile as any)?.verified} onOpenNotifications={openNotifications} onQuickSearch={handleQuickSearch} />
+          <Header
+            hospitalName={hospitalName}
+            verified={Boolean(hospitalQuery.data ? (hospitalQuery.data as any).is_verified : (profile as any)?.verified)}
+            onOpenNotifications={openNotifications}
+            onQuickSearch={handleQuickSearch}
+          />
 
           <main className="p-6">
-            {/* Top quick actions */}
             <div className="mb-4">
               <QuickActions hospitalId={hospitalId} onNavigate={handleNavigate} />
             </div>
 
-            {/* Main content area */}
-            <motion.div
-              key={currentPage}
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.28 }}
-            >
+            <motion.div key={currentPage} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.28 }}>
               {renderContent()}
             </motion.div>
 
-            {/* Side widgets: Audit + Recent */}
             <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2">
-                {/* nothing here — main content occupies left 2 cols */}
-              </div>
+              <div className="lg:col-span-2" />
               <div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-2">
@@ -460,7 +423,6 @@ export default function HospitalDashboard() {
               </div>
             </div>
 
-            {/* Footer area with small KPIs */}
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white p-4 rounded shadow-sm">
                 <div className="text-xs text-slate-500">Hospital ID</div>
@@ -487,7 +449,6 @@ export default function HospitalDashboard() {
               </div>
             </div>
 
-            {/* logout / small controls */}
             <div className="mt-6 flex items-center justify-end gap-3">
               <Button onClick={doLogout} variant="destructive" className="flex items-center gap-2">
                 <LogOut className="w-4 h-4" /> Logout
@@ -503,9 +464,7 @@ export default function HospitalDashboard() {
   );
 }
 
-/* -------------------------
-   Small icon fallbacks (kept inline to avoid extra imports)
-   ------------------------- */
+/* small icon fallbacks */
 function RefreshIconFallback() {
   return <Loader2 className="w-4 h-4" />;
 }

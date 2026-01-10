@@ -52,7 +52,7 @@ const DonorDashboard: React.FC = () => {
     setRequests([
       {
         id: "r1",
-        patientName: "Alice",
+        patientName: "deepthi",
         patientPhone: "9876543210",
         bloodType: "A+",
         requestedAt: "2026-01-02 10:30 AM",
@@ -66,7 +66,7 @@ const DonorDashboard: React.FC = () => {
       },
       {
         id: "r2",
-        patientName: "Bob",
+        patientName: "priya",
         patientPhone: "9123456780",
         bloodType: "B+",
         requestedAt: "2026-01-03 08:15 PM",

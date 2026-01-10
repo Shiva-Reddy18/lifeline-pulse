@@ -130,7 +130,7 @@ export default function PatientHeader({
             {/* DESKTOP NAV */}
             <nav className="hidden md:flex items-center gap-6">
               {navItem("Dashboard", "dashboard", Home)}
-              {navItem("AI Lab", "ai", Sparkles)}
+              {/* {navItem("AI Lab", "ai", Sparkles)} */}
               {navItem("Network Map", "map", Map)}
               {navItem("Profile", "profile", User)}
             </nav>

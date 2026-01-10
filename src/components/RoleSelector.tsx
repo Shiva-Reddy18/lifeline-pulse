@@ -46,30 +46,30 @@ const roleOptions: RoleOption[] = [
     color: 'text-secondary',
     bgColor: 'bg-secondary/10'
   },
-  {
-    id: 'blood_bank',
-    title: 'Blood Bank',
-    description: 'Manage blood inventory and requests',
-    icon: Building2,
-    color: 'text-[hsl(var(--blood-ab))]',
-    bgColor: 'bg-[hsl(var(--blood-ab)/0.1)]'
-  },
-  {
-    id: 'volunteer',
-    title: 'Volunteer / Transport',
-    description: 'Help transport blood to patients',
-    icon: Truck,
-    color: 'text-[hsl(var(--status-stable))]',
-    bgColor: 'bg-[hsl(var(--status-stable)/0.1)]'
-  },
-  {
-    id: 'admin',
-    title: 'Admin / Authority',
-    description: 'System oversight and verification',
-    icon: Shield,
-    color: 'text-[hsl(var(--status-warning))]',
-    bgColor: 'bg-[hsl(var(--status-warning)/0.1)]'
-  }
+  // {
+  //   id: 'blood_bank',
+  //   title: 'Blood Bank',
+  //   description: 'Manage blood inventory and requests',
+  //   icon: Building2,
+  //   color: 'text-[hsl(var(--blood-ab))]',
+  //   bgColor: 'bg-[hsl(var(--blood-ab)/0.1)]'
+  // },
+  // {
+  //   id: 'volunteer',
+  //   title: 'Volunteer / Transport',
+  //   description: 'Help transport blood to patients',
+  //   icon: Truck,
+  //   color: 'text-[hsl(var(--status-stable))]',
+  //   bgColor: 'bg-[hsl(var(--status-stable)/0.1)]'
+  // },
+//   {
+//     id: 'admin',
+//     title: 'Admin / Authority',
+//     description: 'System oversight and verification',
+//     icon: Shield,
+//     color: 'text-[hsl(var(--status-warning))]',
+//     bgColor: 'bg-[hsl(var(--status-warning)/0.1)]'
+//   }
 ];
 
 interface RoleSelectorProps {

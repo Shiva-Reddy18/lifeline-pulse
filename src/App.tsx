@@ -22,7 +22,11 @@ import PatientDashboard from "@/patient/PatientDashboard";
 //import DonorDashboard from "@/pages/DonorDashboard";
 import DonorDashboard from "@/donor/DonorDashboard";
 
-import AdminDashboard from "@/pages/AdminDashboard";
+import AdminLayout from "@/AdminDashboard/AdminLayout";
+import AdminDashboard from "@/AdminDashboard/AdminDashboard";
+import AdminPatients from "@/AdminDashboard/AdminPatients";
+import AdminDonors from "@/AdminDashboard/AdminDonors";
+import AdminHospitals from "@/AdminDashboard/AdminHospitals";
 import BloodBankDashboard from "@/pages/BloodBankDashboard";
 import VolunteerDashboard from "@/pages/VolunteerDashboard";
 import NotFound from "@/pages/NotFound";
@@ -75,10 +79,12 @@ const App = () => {
                 path="/dashboard/donor"
                 element={<DonorDashboard />}
               />
-              <Route
-                path="/dashboard/admin"
-                element={<AdminDashboard />}
-              />
+              <Route path="/dashboard/admin" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="patients" element={<AdminPatients />} />
+                <Route path="donors" element={<AdminDonors />} />
+                <Route path="hospitals" element={<AdminHospitals />} />
+              </Route>
               <Route
                 path="/dashboard/blood-bank"
                 element={<BloodBankDashboard />}
